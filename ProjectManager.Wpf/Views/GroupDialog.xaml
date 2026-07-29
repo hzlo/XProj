@@ -1,0 +1,56 @@
+<Window x:Class="ProjectManager.Wpf.Views.GroupDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="分组"
+        Width="470"
+        Height="420"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="0" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Border Background="{DynamicResource AppBackdropBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="52" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Margin="18,0,10,0">
+                <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                           VerticalAlignment="Center" />
+                <Button Content="×" HorizontalAlignment="Right" Style="{StaticResource TitleBarButton}"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True" IsCancel="True" />
+            </Grid>
+
+            <StackPanel Grid.Row="1" Margin="28,14,28,18">
+                <TextBlock Text="整理工作空间" FontSize="22" />
+                <TextBlock Text="使用清晰的层级让项目始终容易找到。" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
+            </StackPanel>
+
+            <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="28,0" Padding="18">
+                <StackPanel>
+                    <TextBlock Text="分组名称" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="NameTextBox" Tag="输入一个清晰、具体的名称" />
+                    <TextBlock Text="父分组" Style="{StaticResource FieldLabel}" Margin="1,17,0,7" />
+                    <ComboBox x:Name="ParentComboBox" DisplayMemberPath="DisplayName" SelectedValuePath="Id" />
+                    <Border x:Name="ValidationBanner" Background="{DynamicResource DangerSurfaceBrush}" CornerRadius="9" Padding="10,7" Margin="0,12,0,0" Visibility="Collapsed">
+                        <TextBlock x:Name="ValidationText" Foreground="{DynamicResource ValidationTextBrush}" />
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="28,18,28,24">
+                <Button Content="取消" MinWidth="84" IsCancel="True" />
+                <Button Content="保存分组" MinWidth="102" Style="{StaticResource PrimaryButton}" Click="Save_Click" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

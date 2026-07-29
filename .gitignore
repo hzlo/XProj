@@ -1,0 +1,12 @@
+.idea/
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+*.log
+artifacts/
+publish/
+ProjectManager.Wpf.SmokeTests/smoke-data/

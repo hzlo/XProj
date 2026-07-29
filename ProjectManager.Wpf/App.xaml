@@ -1,0 +1,17 @@
+<Application x:Class="ProjectManager.Wpf.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             ShutdownMode="OnExplicitShutdown"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <FontFamily x:Key="UiFontFamily">Microsoft YaHei UI</FontFamily>
+            <sys:Double x:Key="UiFontSize">13</sys:Double>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/AppleDark.xaml" />
+                <ResourceDictionary Source="Themes/AppleStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

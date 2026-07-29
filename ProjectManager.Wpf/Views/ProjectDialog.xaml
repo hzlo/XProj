@@ -1,0 +1,175 @@
+<Window x:Class="ProjectManager.Wpf.Views.ProjectDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="项目"
+        Width="880"
+        Height="760"
+        MinWidth="720"
+        MinHeight="660"
+        WindowStyle="None"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="CommandEditorItem" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="{DynamicResource InsetPanelBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="RowSurface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{DynamicResource SoftBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="11"
+                                Padding="8">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="RowSurface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" /></Trigger>
+                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="RowSurface" Property="BorderBrush" Value="{DynamicResource AccentStrongBrush}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CommandInlineEditor" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Background" Value="{DynamicResource PanelSolidBrush}" />
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource AppBackdropBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="52" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Margin="18,0,10,0">
+                <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                           VerticalAlignment="Center" />
+                <Button Content="×" HorizontalAlignment="Right" Style="{StaticResource TitleBarButton}"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True" IsCancel="True" />
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="28,16,28,20">
+                <StackPanel>
+                    <TextBlock Text="项目资料" Style="{StaticResource PageTitle}" />
+                    <TextBlock Text="定义工作目录和常用命令，保存后即可从工作台直接运行。"
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,6,0,0" />
+                </StackPanel>
+                <Border x:Name="ValidationBanner" Background="{DynamicResource DangerSurfaceBrush}" BorderBrush="{DynamicResource DangerBorderBrush}" BorderThickness="1"
+                        CornerRadius="10" Padding="12,8" HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xEA39;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource DangerBrush}" Margin="0,0,8,0" />
+                        <TextBlock x:Name="ValidationText" Foreground="{DynamicResource ValidationTextBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="28,0" Padding="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="230" /></Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,14,0">
+                            <TextBlock Text="项目名称" Style="{StaticResource FieldLabel}" />
+                            <TextBox x:Name="NameTextBox" Tag="例如：桌面客户端" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="所属分组" Style="{StaticResource FieldLabel}" />
+                            <ComboBox x:Name="GroupComboBox" DisplayMemberPath="DisplayName" SelectedValuePath="Id" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Grid.Row="1" Margin="0,16,0,0">
+                        <TextBlock Text="工作目录" Style="{StaticResource FieldLabel}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBox x:Name="PathTextBox" Tag="选择项目所在目录" />
+                            <Button Grid.Column="1" Content="浏览目录" Margin="9,0,0,0" Click="Browse_Click" />
+                        </Grid>
+                    </StackPanel>
+
+                    <Grid Grid.Row="2" Margin="1,20,0,9">
+                        <StackPanel>
+                            <TextBlock Text="项目命令" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="每条命令都在上方的工作目录中运行" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="添加命令" Style="{StaticResource GhostButton}" Click="AddCommand_Click" />
+                            <Button Content="移除选中" Style="{StaticResource GhostButton}" Foreground="{DynamicResource DangerBrush}" Click="RemoveCommand_Click" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="28" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Margin="8,0,8,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="名称" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="命令" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+                        </Grid>
+                        <ListBox x:Name="CommandsList"
+                                 Grid.Row="1"
+                                 ItemsSource="{Binding Commands}"
+                                 ItemContainerStyle="{StaticResource CommandEditorItem}"
+                                 MinHeight="280"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                                 Tag="命令名称"
+                                                 Style="{StaticResource CommandInlineEditor}" />
+                                        <TextBox Grid.Column="2"
+                                                 Text="{Binding CommandText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Tag="例如：npm run dev"
+                                                 Style="{StaticResource CommandInlineEditor}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="3" Margin="28,18,28,24">
+                <TextBlock Text="示例：npm run dev · dotnet run · java -jar app.jar" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="取消" MinWidth="86" IsCancel="True" />
+                    <Button Content="保存项目" MinWidth="104" Style="{StaticResource PrimaryButton}" Click="Save_Click" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
