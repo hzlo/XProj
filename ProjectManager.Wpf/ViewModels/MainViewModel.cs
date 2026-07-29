@@ -23,7 +23,8 @@ public sealed class MainViewModel : ObservableObject
     private readonly ProcessManager _processManager;
     private readonly SystemLauncher _systemLauncher;
     private readonly Dictionary<Guid, RollingLogBuffer> _logs = new();
-    private readonly ConcurrentQueue<ProcessOutputEventArgs> _pendingOutput = new();
+    private readonly ConcurrentDictionary<Guid, int> _logGenerations = new();
+    private readonly ConcurrentQueue<PendingProcessOutput> _pendingOutput = new();
     private RollingLineBuffer _displayedLog = new(300, 76_800, 61_440);
     private AppData _data = new();
     private GroupTreeItem? _selectedGroup;
@@ -88,8 +89,16 @@ public sealed class MainViewModel : ObservableObject
         get => _selectedCommand;
         set
         {
+            var previousCommand = _selectedCommand;
             if (SetProperty(ref _selectedCommand, value))
             {
+                if (previousCommand is not null &&
+                    previousCommand.Command.Id != value?.Command.Id &&
+                    !_processManager.IsRunning(previousCommand.Command.Id))
+                {
+                    ClearCommandLog(previousCommand.Command.Id, discardPendingOutput: true);
+                }
+
                 OnPropertyChanged(nameof(HasSelectedCommand));
                 RefreshLogText();
             }
@@ -267,7 +276,17 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task DeleteProjectAsync(Guid projectId)
     {
+        var commandIds = _data.Projects
+            .Where(item => item.Id == projectId)
+            .SelectMany(item => item.Commands)
+            .Select(item => item.Id)
+            .ToArray();
         await _processManager.StopProjectAsync(projectId);
+        foreach (var commandId in commandIds)
+        {
+            _logs.Remove(commandId);
+            _logGenerations.TryRemove(commandId, out _);
+        }
         _data.Projects.RemoveAll(item => item.Id == projectId);
         await _dataStore.SaveAsync(_data);
         RefreshProjects();
@@ -279,6 +298,7 @@ public sealed class MainViewModel : ObservableObject
     {
         var project = SelectedProject ?? throw new InvalidOperationException("请先选择项目。");
         SelectedCommand = commandRuntime;
+        ClearCommandLog(commandRuntime.Command.Id, discardPendingOutput: true);
         commandRuntime.SetRunning(true, "启动中");
         AppendLog(commandRuntime.Command.Id, $"[{DateTime.Now:HH:mm:ss}] 正在启动 {commandRuntime.Command.Name}...");
 
@@ -340,6 +360,7 @@ public sealed class MainViewModel : ObservableObject
         await _processManager.StopAsync(commandId);
         project.Commands.Remove(command);
         _logs.Remove(commandId);
+        _logGenerations.TryRemove(commandId, out _);
         await _dataStore.SaveAsync(_data);
         RefreshCommands();
         UpdateRunningCount();
@@ -383,9 +404,7 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        _logs.Remove(SelectedCommand.Command.Id);
-        _displayedLog = CreateDisplayedLogBuffer();
-        ReplaceDisplayedLog(string.Empty);
+        ClearCommandLog(SelectedCommand.Command.Id, discardPendingOutput: true);
     }
 
     public void RefreshLogDisplay() => RefreshLogText();
@@ -718,9 +737,31 @@ public sealed class MainViewModel : ObservableObject
 
     private void ProcessManagerOnOutputReceived(object? sender, ProcessOutputEventArgs eventArgs)
     {
-        _pendingOutput.Enqueue(eventArgs);
+        _pendingOutput.Enqueue(new PendingProcessOutput(
+            eventArgs,
+            GetLogGeneration(eventArgs.CommandId)));
         ScheduleOutputFlush();
     }
+
+    private void ClearCommandLog(Guid commandId, bool discardPendingOutput)
+    {
+        if (discardPendingOutput)
+        {
+            _logGenerations.AddOrUpdate(commandId, 1, static (_, generation) => unchecked(generation + 1));
+        }
+
+        _logs.Remove(commandId);
+        if (SelectedCommand?.Command.Id != commandId)
+        {
+            return;
+        }
+
+        _displayedLog = CreateDisplayedLogBuffer();
+        ReplaceDisplayedLog(string.Empty);
+    }
+
+    private int GetLogGeneration(Guid commandId) =>
+        _logGenerations.GetOrAdd(commandId, 0);
 
     private void ApplyLogFontSettings()
     {
@@ -762,10 +803,13 @@ public sealed class MainViewModel : ObservableObject
 
     private void ProcessManagerOnProcessExited(object? sender, ProcessExitedEventArgs eventArgs)
     {
-        _pendingOutput.Enqueue(new ProcessOutputEventArgs(
-            eventArgs.CommandId,
-            $"[{DateTime.Now:HH:mm:ss}] 进程已退出，代码：{eventArgs.ExitCode}",
-            false));
+        var generation = GetLogGeneration(eventArgs.CommandId);
+        _pendingOutput.Enqueue(new PendingProcessOutput(
+            new ProcessOutputEventArgs(
+                eventArgs.CommandId,
+                $"[{DateTime.Now:HH:mm:ss}] 进程已退出，代码：{eventArgs.ExitCode}",
+                false),
+            generation));
         ScheduleOutputFlush();
 
         var dispatcher = Application.Current?.Dispatcher;
@@ -776,6 +820,11 @@ public sealed class MainViewModel : ObservableObject
 
         dispatcher.InvokeAsync(() =>
         {
+            if (generation != GetLogGeneration(eventArgs.CommandId))
+            {
+                return;
+            }
+
             var runtime = Commands.FirstOrDefault(item => item.Command.Id == eventArgs.CommandId);
             runtime?.SetRunning(false, $"已退出 ({eventArgs.ExitCode})");
             UpdateRunningCount();
@@ -823,8 +872,14 @@ public sealed class MainViewModel : ObservableObject
         var processedCharacters = 0;
         while (processedEvents < MaximumOutputEventsPerFlush &&
                processedCharacters < MaximumOutputCharactersPerFlush &&
-               _pendingOutput.TryDequeue(out var eventArgs))
+               _pendingOutput.TryDequeue(out var pendingOutput))
         {
+            var eventArgs = pendingOutput.EventArgs;
+            if (pendingOutput.Generation != GetLogGeneration(eventArgs.CommandId))
+            {
+                continue;
+            }
+
             if (!outputByCommand.TryGetValue(eventArgs.CommandId, out var outputBatch))
             {
                 outputBatch = new StringBuilder();
@@ -841,6 +896,12 @@ public sealed class MainViewModel : ObservableObject
 
         foreach (var (commandId, outputBatch) in outputByCommand)
         {
+            if (commandId != selectedCommandId && !_processManager.IsRunning(commandId))
+            {
+                _logs.Remove(commandId);
+                continue;
+            }
+
             AppendLogText(commandId, outputBatch.ToString(), commandId == selectedCommandId);
         }
     }
@@ -905,6 +966,8 @@ public sealed record LogDisplayUpdateEventArgs(
     string? ReplacementText,
     int CharactersToRemove,
     string TextToAppend);
+
+internal sealed record PendingProcessOutput(ProcessOutputEventArgs EventArgs, int Generation);
 
 public enum GroupFilterKind
 {

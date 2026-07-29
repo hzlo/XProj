@@ -49,7 +49,7 @@
 
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="28,18,28,24">
                 <Button Content="取消" MinWidth="84" IsCancel="True" />
-                <Button Content="保存分组" MinWidth="102" Style="{StaticResource PrimaryButton}" Click="Save_Click" />
+                <Button Content="保存分组" MinWidth="102" Click="Save_Click" />
             </StackPanel>
         </Grid>
     </Border>

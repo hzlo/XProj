@@ -167,7 +167,7 @@
                 <TextBlock Text="示例：npm run dev · dotnet run · java -jar app.jar" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="取消" MinWidth="86" IsCancel="True" />
-                    <Button Content="保存项目" MinWidth="104" Style="{StaticResource PrimaryButton}" Click="Save_Click" />
+                    <Button Content="保存项目" MinWidth="104" Click="Save_Click" />
                 </StackPanel>
             </Grid>
         </Grid>

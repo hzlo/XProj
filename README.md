@@ -25,7 +25,7 @@ XProj 是一个轻量的 Windows 本地项目与命令管理器，用于按分�
 | `XProj-*-win-x64-self-contained.zip` | 推荐普通用户使用 | 无需预装 .NET，文件体积较大 |
 | `XProj-*-win-x64-framework-dependent.zip` | 已安装运行环境的用户 | 需要 [.NET 10 Desktop Runtime x64](https://dotnet.microsoft.com/download/dotnet/10.0) |
 
-下载后解压 ZIP，运行 `ProjectManager.Wpf.exe` 即可。Windows 首次运行从网络下载的程序时可能显示安全提示，请确认文件来自本仓库的 Release。
+下载后解压 ZIP，运行 `XProj.exe` 即可。Windows 首次运行从网络下载的程序时可能显示安全提示，请确认文件来自本仓库的 Release。
 
 ## 使用说明
 

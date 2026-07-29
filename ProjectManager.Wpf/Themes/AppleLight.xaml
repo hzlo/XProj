@@ -1,6 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <BitmapImage x:Key="AppLogo" UriSource="/ProjectManager.Wpf;component/Assets/logo_light.png" />
+    <BitmapImage x:Key="AppLogo" UriSource="/XProj;component/Assets/logo_light.png" />
     <SolidColorBrush x:Key="WindowBrush" Color="#FFF4F5F7" />
     <SolidColorBrush x:Key="PanelBrush" Color="#EFFFFFFF" />
     <SolidColorBrush x:Key="PanelRaisedBrush" Color="#FFFFFFFF" />

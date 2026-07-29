@@ -126,14 +126,46 @@
         <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
     </Style>
     <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
-        <Setter Property="Width" Value="36" />
-        <Setter Property="Height" Value="36" />
-        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Width" Value="38" />
+        <Setter Property="Height" Value="38" />
+        <Setter Property="MinHeight" Value="38" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Margin" Value="2" />
+        <Setter Property="Background" Value="{DynamicResource InsetPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Surface"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="11"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
+                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Surface" Property="Background" Value="{DynamicResource PressedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Surface" Property="Opacity" Value="0.32" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
     <Style x:Key="TitleBarButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
         <Setter Property="Width" Value="42" />

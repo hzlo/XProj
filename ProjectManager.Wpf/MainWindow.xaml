@@ -170,16 +170,7 @@
             </Setter>
         </Style>
 
-        <Style x:Key="ActionChip" TargetType="Button" BasedOn="{StaticResource GhostButton}">
-            <Setter Property="Width" Value="36" />
-            <Setter Property="Height" Value="36" />
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="2" />
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="Normal" />
-        </Style>
+        <Style x:Key="ActionChip" TargetType="Button" BasedOn="{StaticResource IconButton}" />
 
         <Style x:Key="CommandButton" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource SubtleHoverBrush}" />
@@ -443,7 +434,6 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Button Style="{StaticResource CommandButton}"
-                                                 ToolTip="{Binding CommandText}"
                                                          Click="CommandButton_Click">
                                                     <Button.ContextMenu>
                                                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"

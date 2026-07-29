@@ -247,9 +247,15 @@ public sealed class ProcessManager : IAsyncDisposable
         {
         }
 
-        runningProcess.Completion.TrySetResult(exitCode);
-        ProcessExited?.Invoke(this, new ProcessExitedEventArgs(runningProcess.CommandId, exitCode));
-        runningProcess.Process.Dispose();
+        try
+        {
+            ProcessExited?.Invoke(this, new ProcessExitedEventArgs(runningProcess.CommandId, exitCode));
+        }
+        finally
+        {
+            runningProcess.Completion.TrySetResult(exitCode);
+            runningProcess.Process.Dispose();
+        }
     }
 
     private sealed record RunningProcess(

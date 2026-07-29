@@ -1,6 +1,7 @@
 using System.Text;
 using ProjectManager.Wpf.Infrastructure;
 using ProjectManager.Wpf.Models;
+using ProjectManager.Wpf.ViewModels;
 
 if (args.Contains("--emit-unicode-output"))
 {
@@ -309,6 +310,67 @@ if (fastExitCode != 0 || !concurrentManager.IsRunning(slowCommand.Id))
     throw new InvalidOperationException("A slow command blocked another command from completing independently.");
 }
 await concurrentManager.DisposeAsync();
+
+if (typeof(MainViewModel).Assembly.GetName().Name != "XProj" ||
+    Path.GetFileName(typeof(MainViewModel).Assembly.Location) != "XProj.dll")
+{
+    throw new InvalidOperationException("The application assembly name must be XProj.");
+}
+
+var lifecycleDataStore = new JsonDataStore(Path.Combine(AppContext.BaseDirectory, "log-lifecycle-data"));
+var lifecycleCommand = new ProjectCommand
+{
+    Name = "Lifecycle command",
+    CommandText = $"\"{dotnetPath}\" \"{typeof(Program).Assembly.Location}\" --delay-output 8000"
+};
+var otherLifecycleCommand = new ProjectCommand { Name = "Other command", CommandText = "echo other" };
+await lifecycleDataStore.SaveAsync(new AppData
+{
+    Projects = new List<ManagedProject>
+    {
+        new()
+        {
+            Name = "Log lifecycle project",
+            WorkingDirectory = AppContext.BaseDirectory,
+            Commands = new List<ProjectCommand> { lifecycleCommand, otherLifecycleCommand }
+        }
+    }
+});
+var lifecycleProcessManager = new ProcessManager();
+var lifecycleViewModel = new MainViewModel(
+    lifecycleDataStore,
+    lifecycleProcessManager,
+    new SystemLauncher());
+await lifecycleViewModel.InitializeAsync();
+var lifecycleRuntime = lifecycleViewModel.Commands.Single(item => item.Command.Id == lifecycleCommand.Id);
+var otherLifecycleRuntime = lifecycleViewModel.Commands.Single(item => item.Command.Id == otherLifecycleCommand.Id);
+string? latestReplacementText = null;
+lifecycleViewModel.LogDisplayUpdated += (_, eventArgs) =>
+{
+    if (eventArgs.ReplacementText is not null)
+    {
+        latestReplacementText = eventArgs.ReplacementText;
+    }
+};
+
+await lifecycleViewModel.RunCommandAsync(lifecycleRuntime);
+await lifecycleViewModel.StopCommandAsync(lifecycleRuntime);
+latestReplacementText = null;
+lifecycleViewModel.SelectedCommand = otherLifecycleRuntime;
+lifecycleViewModel.SelectedCommand = lifecycleRuntime;
+if (latestReplacementText != string.Empty)
+{
+    throw new InvalidOperationException("A stopped command retained its log after switching away.");
+}
+
+latestReplacementText = null;
+await lifecycleViewModel.RunCommandAsync(lifecycleRuntime);
+if (latestReplacementText != string.Empty)
+{
+    throw new InvalidOperationException("Restarting a command did not begin with an empty log.");
+}
+await lifecycleViewModel.StopCommandAsync(lifecycleRuntime);
+await lifecycleViewModel.ShutdownAsync();
 
 const int BulkLineCount = 20_000;
 var bulkManager = new ProcessManager();
