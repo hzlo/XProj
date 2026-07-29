@@ -91,6 +91,21 @@
                         </Grid>
                     </Border>
 
+                    <TextBlock Text="实时日志" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
+                    <Border Style="{StaticResource CardBorder}" Padding="18">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="250" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="界面保留行数" Style="{StaticResource FieldLabel}" Margin="0" />
+                                <TextBlock Text="仅显示最新日志，较小的行数占用更少资源" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
+                            </StackPanel>
+                            <ComboBox x:Name="LogVisibleLineCountComboBox" Grid.Column="1" />
+                        </Grid>
+                    </Border>
+
                     <TextBlock Text="字体" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
                     <Border Style="{StaticResource CardBorder}" Padding="18">
                         <StackPanel>
@@ -120,6 +135,18 @@
                                 <TextBlock x:Name="LogFontPreview" Text="[12:08:36] 服务已启动 · Listening on http://localhost:5000" Foreground="{DynamicResource LogTextBrush}" TextTrimming="CharacterEllipsis" />
                             </Border>
                         </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="关于" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
+                    <Border Style="{StaticResource CardBorder}" Padding="18">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="XProj 更新" Style="{StaticResource FieldLabel}" Margin="0" />
+                                <TextBlock x:Name="CurrentVersionText" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
+                            </StackPanel>
+                            <Button x:Name="CheckUpdatesButton" Grid.Column="1" Content="检查更新" MinWidth="96" Click="CheckUpdates_Click" />
+                        </Grid>
                     </Border>
 
                     <TextBlock Text="配置文件" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />

@@ -12,25 +12,36 @@ namespace ProjectManager.Wpf;
 
 public partial class MainWindow : Window
 {
+    private readonly SystemLauncher _systemLauncher;
+    private readonly UpdateChecker _updateChecker;
     private readonly MainViewModel _viewModel;
     private readonly Forms.ContextMenuStrip _trayMenu;
     private readonly Forms.NotifyIcon _trayIcon;
     private bool _shutdownCompleted;
+    private bool _checkingForUpdates;
     private bool _isExiting;
+    private bool _logDisplayDirty;
     private bool _trayHintShown;
 
     public MainWindow()
     {
         InitializeComponent();
-        _viewModel = new MainViewModel(new JsonDataStore(), new ProcessManager(), new SystemLauncher());
+        _systemLauncher = new SystemLauncher();
+        _updateChecker = new UpdateChecker();
+        _viewModel = new MainViewModel(new JsonDataStore(), new ProcessManager(), _systemLauncher);
+        _viewModel.LogDisplayUpdated += ViewModelOnLogDisplayUpdated;
         DataContext = _viewModel;
+        StateChanged += (_, _) => RefreshDeferredLogDisplay();
 
         _trayMenu = new Forms.ContextMenuStrip();
         var showItem = new Forms.ToolStripMenuItem("打开 XProj");
         showItem.Click += (_, _) => Dispatcher.Invoke(ShowFromTray);
+        var checkUpdatesItem = new Forms.ToolStripMenuItem("检查更新");
+        checkUpdatesItem.Click += TrayCheckUpdates_Click;
         var exitItem = new Forms.ToolStripMenuItem("完全退出");
         exitItem.Click += TrayExit_Click;
         _trayMenu.Items.Add(showItem);
+        _trayMenu.Items.Add(checkUpdatesItem);
         _trayMenu.Items.Add(new Forms.ToolStripSeparator());
         _trayMenu.Items.Add(exitItem);
 
@@ -50,6 +61,7 @@ public partial class MainWindow : Window
         {
             await _viewModel.InitializeAsync();
             ThemeManager.Apply(_viewModel.CurrentSettings);
+            _ = CheckForUpdatesAsync(this, showUpToDateMessage: false);
         }
         catch (Exception exception)
         {
@@ -312,7 +324,9 @@ public partial class MainWindow : Window
                 var settings = await _viewModel.ImportConfigurationAsync(filePath);
                 ThemeManager.Apply(settings);
                 return settings;
-            })
+            },
+            UpdateChecker.CurrentVersionDisplay,
+            owner => CheckForUpdatesAsync(owner, showUpToDateMessage: true))
         {
             Owner = this
         };
@@ -382,8 +396,42 @@ public partial class MainWindow : Window
     private void OpenEditor_Click(object sender, RoutedEventArgs e) =>
         Execute(() => _viewModel.OpenSelectedProjectEditor());
 
-    private void LogTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) =>
+    private void ViewModelOnLogDisplayUpdated(object? sender, LogDisplayUpdateEventArgs eventArgs)
+    {
+        if (!IsVisible || WindowState == WindowState.Minimized)
+        {
+            _logDisplayDirty = true;
+            return;
+        }
+
+        if (eventArgs.ReplacementText is not null)
+        {
+            LogTextBox.Text = eventArgs.ReplacementText;
+        }
+        else
+        {
+            if (eventArgs.CharactersToRemove > 0)
+            {
+                LogTextBox.Select(0, Math.Min(eventArgs.CharactersToRemove, LogTextBox.Text.Length));
+                LogTextBox.SelectedText = string.Empty;
+            }
+
+            LogTextBox.AppendText(eventArgs.TextToAppend);
+        }
+
         LogTextBox.ScrollToEnd();
+    }
+
+    private void RefreshDeferredLogDisplay()
+    {
+        if (!_logDisplayDirty || !IsVisible || WindowState == WindowState.Minimized)
+        {
+            return;
+        }
+
+        _logDisplayDirty = false;
+        _viewModel.RefreshLogDisplay();
+    }
 
     private Guid? FindParentGroupId(Guid groupId)
     {
@@ -431,6 +479,7 @@ public partial class MainWindow : Window
             WindowState = WindowState.Normal;
         }
 
+        RefreshDeferredLogDisplay();
         Activate();
     }
 
@@ -438,6 +487,78 @@ public partial class MainWindow : Window
     {
         await ExitApplicationAsync();
     }
+
+    private void TrayCheckUpdates_Click(object? sender, EventArgs e)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ShowFromTray();
+            _ = CheckForUpdatesAsync(this, showUpToDateMessage: true);
+        });
+    }
+
+    private async Task CheckForUpdatesAsync(Window owner, bool showUpToDateMessage)
+    {
+        if (_checkingForUpdates)
+        {
+            if (showUpToDateMessage)
+            {
+                AppDialog.Show(ResolveDialogOwner(owner), "检查更新", "正在检查更新，请稍候。");
+            }
+            return;
+        }
+
+        _checkingForUpdates = true;
+        try
+        {
+            var result = await _updateChecker.CheckAsync(forceRefresh: showUpToDateMessage);
+            if (result.IsUpdateAvailable)
+            {
+                if (!IsVisible && !showUpToDateMessage)
+                {
+                    _trayIcon.BalloonTipTitle = "XProj 有新版本";
+                    _trayIcon.BalloonTipText = $"v{result.LatestVersion} 已发布，可从托盘菜单检查更新。";
+                    _trayIcon.ShowBalloonTip(4000);
+                    return;
+                }
+
+                var dialogOwner = ResolveDialogOwner(owner);
+                if (AppDialog.Confirm(
+                        dialogOwner,
+                        "发现新版本",
+                        $"当前版本：v{result.CurrentVersion}\n最新版本：v{result.LatestVersion}\n\n是否前往 GitHub Releases 下载？",
+                        "前往下载",
+                        AppDialogKind.Information))
+                {
+                    _systemLauncher.OpenUrl(result.ReleaseUrl);
+                }
+            }
+            else if (showUpToDateMessage)
+            {
+                AppDialog.Show(
+                    ResolveDialogOwner(owner),
+                    "已是最新版本",
+                    $"当前版本 v{result.CurrentVersion} 已是最新版本。");
+            }
+        }
+        catch (Exception exception)
+        {
+            if (showUpToDateMessage)
+            {
+                var message = exception is TaskCanceledException
+                    ? "连接 GitHub 超时，请稍后重试。"
+                    : $"无法检查更新：{exception.Message}";
+                AppDialog.Show(ResolveDialogOwner(owner), "检查更新失败", message, AppDialogKind.Error);
+            }
+        }
+        finally
+        {
+            _checkingForUpdates = false;
+        }
+    }
+
+    private static Window ResolveDialogOwner(Window preferredOwner) =>
+        Application.Current.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive) ?? preferredOwner;
 
     private async Task ExitApplicationAsync()
     {

@@ -513,7 +513,7 @@
                                                 IsEnabled="{Binding HasSelectedCommand}" Click="ClearLog_Click" />
                                     </StackPanel>
                                 </Grid>
-                                <TextBox x:Name="LogTextBox" Grid.Row="1" Text="{Binding LogText, Mode=OneWay}" TextChanged="LogTextBox_TextChanged"
+                                <TextBox x:Name="LogTextBox" Grid.Row="1"
                                          IsReadOnly="True" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
                                          FontFamily="{Binding LogFontFamily}" FontSize="{Binding LogFontSize}"
                                          FontWeight="{Binding LogFontWeight}" FontStyle="{Binding LogFontStyle}"

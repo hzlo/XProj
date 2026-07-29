@@ -46,9 +46,14 @@ public partial class AppDialog : Window
         _ = dialog.ShowDialog();
     }
 
-    public static bool Confirm(Window owner, string title, string message, string primaryText = "继续")
+    public static bool Confirm(
+        Window owner,
+        string title,
+        string message,
+        string primaryText = "继续",
+        AppDialogKind kind = AppDialogKind.Warning)
     {
-        var dialog = new AppDialog(title, title, message, AppDialogKind.Warning, primaryText, true) { Owner = owner };
+        var dialog = new AppDialog(title, title, message, kind, primaryText, true) { Owner = owner };
         return dialog.ShowDialog() == true;
     }
 

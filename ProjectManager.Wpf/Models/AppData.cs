@@ -18,6 +18,7 @@ public sealed class AppSettings
     public double LogFontSize { get; set; } = 11;
     public bool LogFontBold { get; set; }
     public bool LogFontItalic { get; set; }
+    public int LogVisibleLineCount { get; set; } = 300;
 
     public AppSettings Clone() => new()
     {
@@ -28,7 +29,8 @@ public sealed class AppSettings
         LogFontFamily = LogFontFamily,
         LogFontSize = LogFontSize,
         LogFontBold = LogFontBold,
-        LogFontItalic = LogFontItalic
+        LogFontItalic = LogFontItalic,
+        LogVisibleLineCount = LogVisibleLineCount
     };
 }
 

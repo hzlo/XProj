@@ -117,6 +117,10 @@ public sealed class JsonDataStore
         {
             data.Settings.LogFontSize = 11;
         }
+        if (data.Settings.LogVisibleLineCount is not (100 or 300 or 500 or 1000))
+        {
+            data.Settings.LogVisibleLineCount = 300;
+        }
 
         data.Groups ??= new List<ProjectGroup>();
         data.Projects ??= new List<ManagedProject>();

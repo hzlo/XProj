@@ -10,18 +10,22 @@ public partial class SettingsDialog : Window
 {
     private readonly Func<string, Task> _exportConfiguration;
     private readonly Func<string, Task<AppSettings>> _importConfiguration;
+    private readonly Func<Window, Task> _checkForUpdates;
     private readonly List<FontFamily> _fonts;
     private AppSettings _settings;
 
     public SettingsDialog(
         AppSettings settings,
         Func<string, Task> exportConfiguration,
-        Func<string, Task<AppSettings>> importConfiguration)
+        Func<string, Task<AppSettings>> importConfiguration,
+        string currentVersion,
+        Func<Window, Task> checkForUpdates)
     {
         InitializeComponent();
         _settings = settings.Clone();
         _exportConfiguration = exportConfiguration;
         _importConfiguration = importConfiguration;
+        _checkForUpdates = checkForUpdates;
         _fonts = Fonts.SystemFontFamilies.OrderBy(font => font.Source, StringComparer.CurrentCultureIgnoreCase).ToList();
 
         ThemeComboBox.ItemsSource = new[] { "深色", "浅色" };
@@ -30,6 +34,8 @@ public partial class SettingsDialog : Window
         LogFontComboBox.ItemsSource = _fonts;
         UiFontSizeComboBox.ItemsSource = Enumerable.Range(10, 15).Select(size => (double)size);
         LogFontSizeComboBox.ItemsSource = Enumerable.Range(8, 33).Select(size => (double)size);
+        LogVisibleLineCountComboBox.ItemsSource = new[] { 100, 300, 500, 1000 };
+        CurrentVersionText.Text = $"当前版本 v{currentVersion}";
         ApplySettingsToControls(_settings);
     }
 
@@ -45,6 +51,7 @@ public partial class SettingsDialog : Window
         LogFontSizeComboBox.SelectedItem = Math.Round(settings.LogFontSize);
         LogBoldToggle.IsChecked = settings.LogFontBold;
         LogItalicToggle.IsChecked = settings.LogFontItalic;
+        LogVisibleLineCountComboBox.SelectedItem = settings.LogVisibleLineCount;
         UpdatePreviews();
     }
 
@@ -88,6 +95,19 @@ public partial class SettingsDialog : Window
         await RunFileOperationAsync(() => _exportConfiguration(dialog.FileName), "配置已导出");
     }
 
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        CheckUpdatesButton.IsEnabled = false;
+        try
+        {
+            await _checkForUpdates(this);
+        }
+        finally
+        {
+            CheckUpdatesButton.IsEnabled = true;
+        }
+    }
+
     private async void Import_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
@@ -128,7 +148,8 @@ public partial class SettingsDialog : Window
     {
         if (ThemeComboBox.SelectedIndex < 0 || CloseBehaviorComboBox.SelectedIndex < 0 ||
             UiFontComboBox.SelectedItem is not FontFamily uiFont || UiFontSizeComboBox.SelectedItem is not double uiFontSize ||
-            LogFontComboBox.SelectedItem is not FontFamily logFont || LogFontSizeComboBox.SelectedItem is not double logFontSize)
+            LogFontComboBox.SelectedItem is not FontFamily logFont || LogFontSizeComboBox.SelectedItem is not double logFontSize ||
+            LogVisibleLineCountComboBox.SelectedItem is not int logVisibleLineCount)
         {
             ValidationText.Text = "请完成外观和字体设置。";
             return;
@@ -143,7 +164,8 @@ public partial class SettingsDialog : Window
             LogFontFamily = logFont.Source,
             LogFontSize = logFontSize,
             LogFontBold = LogBoldToggle.IsChecked == true,
-            LogFontItalic = LogItalicToggle.IsChecked == true
+            LogFontItalic = LogItalicToggle.IsChecked == true,
+            LogVisibleLineCount = logVisibleLineCount
         };
         DialogResult = true;
     }

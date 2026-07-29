@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using ProjectManager.Wpf.Models;
 
@@ -154,7 +155,7 @@ public sealed class ProcessManager : IAsyncDisposable
 
     private async Task ReadOutputAsync(Stream stream, Guid commandId, bool isError)
     {
-        var buffer = new byte[4096];
+        var buffer = new byte[16 * 1024];
         var line = new List<byte>();
 
         while (true)
@@ -165,44 +166,63 @@ public sealed class ProcessManager : IAsyncDisposable
                 break;
             }
 
+            var outputBatch = new StringBuilder(bytesRead);
+            var completedLineCount = 0;
             for (var index = 0; index < bytesRead; index++)
             {
                 if (buffer[index] == (byte)'\n')
                 {
-                    PublishOutput(commandId, line, isError);
+                    AppendDecodedLine(outputBatch, line, completedLineCount > 0);
+                    completedLineCount++;
                     line.Clear();
                     continue;
                 }
 
                 line.Add(buffer[index]);
             }
+
+            if (completedLineCount > 0)
+            {
+                PublishOutput(commandId, outputBatch.ToString(), isError);
+            }
         }
 
         if (line.Count > 0)
         {
-            PublishOutput(commandId, line, isError);
+            PublishOutput(commandId, DecodeOutput(line), isError);
         }
     }
 
-    private void PublishOutput(Guid commandId, List<byte> line, bool isError)
+    private static void AppendDecodedLine(StringBuilder outputBatch, List<byte> line, bool prependNewLine)
     {
         if (line.Count > 0 && line[^1] == (byte)'\r')
         {
             line.RemoveAt(line.Count - 1);
         }
 
-        OutputReceived?.Invoke(this, new ProcessOutputEventArgs(commandId, DecodeOutput(line), isError));
+        if (prependNewLine)
+        {
+            outputBatch.AppendLine();
+        }
+
+        outputBatch.Append(DecodeOutput(line));
+    }
+
+    private void PublishOutput(Guid commandId, string text, bool isError)
+    {
+        OutputReceived?.Invoke(this, new ProcessOutputEventArgs(commandId, text, isError));
     }
 
     private static string DecodeOutput(List<byte> bytes)
     {
+        var byteSpan = CollectionsMarshal.AsSpan(bytes);
         try
         {
-            return StrictUtf8Encoding.GetString(bytes.ToArray());
+            return StrictUtf8Encoding.GetString(byteSpan);
         }
         catch (DecoderFallbackException)
         {
-            return ShellOutputEncoding.GetString(bytes.ToArray());
+            return ShellOutputEncoding.GetString(byteSpan);
         }
     }
 

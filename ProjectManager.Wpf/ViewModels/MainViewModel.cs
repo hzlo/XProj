@@ -12,20 +12,24 @@ namespace ProjectManager.Wpf.ViewModels;
 public sealed class MainViewModel : ObservableObject
 {
     private const int MaximumLogCharacters = 500_000;
-    private const int MaximumOutputEventsPerFlush = 500;
-    private static readonly TimeSpan OutputFlushInterval = TimeSpan.FromMilliseconds(75);
+    private const int RetainedLogCharacters = 400_000;
+    private const int MinimumDisplayedLogCharacters = 60_000;
+    private const int DisplayedCharactersPerLine = 256;
+    private const int MaximumOutputEventsPerFlush = 5_000;
+    private const int MaximumOutputCharactersPerFlush = 512_000;
+    private static readonly TimeSpan OutputFlushInterval = TimeSpan.FromMilliseconds(100);
 
     private readonly JsonDataStore _dataStore;
     private readonly ProcessManager _processManager;
     private readonly SystemLauncher _systemLauncher;
-    private readonly Dictionary<Guid, StringBuilder> _logs = new();
+    private readonly Dictionary<Guid, RollingLogBuffer> _logs = new();
     private readonly ConcurrentQueue<ProcessOutputEventArgs> _pendingOutput = new();
+    private RollingLineBuffer _displayedLog = new(300, 76_800, 61_440);
     private AppData _data = new();
     private GroupTreeItem? _selectedGroup;
     private ManagedProject? _selectedProject;
     private CommandRuntimeViewModel? _selectedCommand;
     private string _searchText = string.Empty;
-    private string _logText = string.Empty;
     private FontFamily _logFontFamily = new("Consolas");
     private double _logFontSize = 11;
     private FontWeight _logFontWeight = FontWeights.Normal;
@@ -42,6 +46,8 @@ public sealed class MainViewModel : ObservableObject
         _processManager.OutputReceived += ProcessManagerOnOutputReceived;
         _processManager.ProcessExited += ProcessManagerOnProcessExited;
     }
+
+    public event EventHandler<LogDisplayUpdateEventArgs>? LogDisplayUpdated;
 
     public ObservableCollection<GroupTreeItem> GroupItems { get; } = new();
     public ObservableCollection<ManagedProject> Projects { get; } = new();
@@ -100,12 +106,6 @@ public sealed class MainViewModel : ObservableObject
                 RefreshProjects();
             }
         }
-    }
-
-    public string LogText
-    {
-        get => _logText;
-        private set => SetProperty(ref _logText, value);
     }
 
     public FontFamily LogFontFamily
@@ -351,6 +351,7 @@ public sealed class MainViewModel : ObservableObject
         ValidateSettings(settings);
         _data.Settings = settings.Clone();
         ApplyLogFontSettings();
+        RefreshLogText();
         await _dataStore.SaveAsync(_data);
         StatusText = "设置已保存";
     }
@@ -383,8 +384,11 @@ public sealed class MainViewModel : ObservableObject
         }
 
         _logs.Remove(SelectedCommand.Command.Id);
-        LogText = string.Empty;
+        _displayedLog = CreateDisplayedLogBuffer();
+        ReplaceDisplayedLog(string.Empty);
     }
+
+    public void RefreshLogDisplay() => RefreshLogText();
 
     public void OpenSelectedProjectFolder()
     {
@@ -738,6 +742,10 @@ public sealed class MainViewModel : ObservableObject
         {
             throw new InvalidOperationException("请选择有效的窗口关闭行为。");
         }
+        if (settings.LogVisibleLineCount is not (100 or 300 or 500 or 1000))
+        {
+            throw new InvalidOperationException("请选择有效的日志保留行数。");
+        }
 
         var installedFonts = Fonts.SystemFontFamilies.Select(font => font.Source).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!installedFonts.Contains(settings.UiFontFamily) || !installedFonts.Contains(settings.LogFontFamily))
@@ -810,47 +818,79 @@ public sealed class MainViewModel : ObservableObject
     private void FlushPendingOutput()
     {
         var selectedCommandId = SelectedCommand?.Command.Id;
-        var refreshSelectedLog = false;
+        var outputByCommand = new Dictionary<Guid, StringBuilder>();
         var processedEvents = 0;
-        while (processedEvents < MaximumOutputEventsPerFlush && _pendingOutput.TryDequeue(out var eventArgs))
+        var processedCharacters = 0;
+        while (processedEvents < MaximumOutputEventsPerFlush &&
+               processedCharacters < MaximumOutputCharactersPerFlush &&
+               _pendingOutput.TryDequeue(out var eventArgs))
         {
-            var prefix = eventArgs.IsError ? "[错误] " : string.Empty;
-            AppendLog(eventArgs.CommandId, prefix + eventArgs.Text, false);
-            refreshSelectedLog |= eventArgs.CommandId == selectedCommandId;
+            if (!outputByCommand.TryGetValue(eventArgs.CommandId, out var outputBatch))
+            {
+                outputBatch = new StringBuilder();
+                outputByCommand[eventArgs.CommandId] = outputBatch;
+            }
+
+            var text = eventArgs.IsError
+                ? "[错误] " + eventArgs.Text.ReplaceLineEndings(Environment.NewLine + "[错误] ")
+                : eventArgs.Text;
+            outputBatch.AppendLine(text);
             processedEvents++;
+            processedCharacters += text.Length + Environment.NewLine.Length;
         }
 
-        if (refreshSelectedLog)
+        foreach (var (commandId, outputBatch) in outputByCommand)
         {
-            RefreshLogText();
+            AppendLogText(commandId, outputBatch.ToString(), commandId == selectedCommandId);
         }
     }
 
     private void AppendLog(Guid commandId, string text, bool refreshSelectedLog = true)
     {
-        if (!_logs.TryGetValue(commandId, out var builder))
+        AppendLogText(commandId, text + Environment.NewLine, refreshSelectedLog);
+    }
+
+    private void AppendLogText(Guid commandId, string text, bool refreshSelectedLog)
+    {
+        if (!_logs.TryGetValue(commandId, out var log))
         {
-            builder = new StringBuilder();
-            _logs[commandId] = builder;
+            log = new RollingLogBuffer(MaximumLogCharacters, RetainedLogCharacters);
+            _logs[commandId] = log;
         }
 
-        builder.AppendLine(text);
-        if (builder.Length > MaximumLogCharacters)
-        {
-            builder.Remove(0, builder.Length - MaximumLogCharacters);
-        }
-
+        log.Append(text);
         if (refreshSelectedLog && SelectedCommand?.Command.Id == commandId)
         {
-            LogText = builder.ToString();
+            var change = _displayedLog.Append(text);
+            LogDisplayUpdated?.Invoke(this, new LogDisplayUpdateEventArgs(
+                null,
+                change.CharactersToRemove,
+                change.TextToAppend));
         }
     }
 
     private void RefreshLogText()
     {
-        LogText = SelectedCommand is not null && _logs.TryGetValue(SelectedCommand.Command.Id, out var builder)
-            ? builder.ToString()
+        var text = SelectedCommand is not null && _logs.TryGetValue(SelectedCommand.Command.Id, out var log)
+            ? log.GetTailLines(_data.Settings.LogVisibleLineCount)
             : string.Empty;
+        _displayedLog = CreateDisplayedLogBuffer();
+        _displayedLog.Append(text);
+        ReplaceDisplayedLog(_displayedLog.ToString());
+    }
+
+    private void ReplaceDisplayedLog(string text) =>
+        LogDisplayUpdated?.Invoke(this, new LogDisplayUpdateEventArgs(text, 0, string.Empty));
+
+    private RollingLineBuffer CreateDisplayedLogBuffer()
+    {
+        var maximumCharacters = Math.Max(
+            MinimumDisplayedLogCharacters,
+            _data.Settings.LogVisibleLineCount * DisplayedCharactersPerLine);
+        return new RollingLineBuffer(
+            _data.Settings.LogVisibleLineCount,
+            maximumCharacters,
+            maximumCharacters * 4 / 5);
     }
 
     private void UpdateRunningCount()
@@ -860,6 +900,11 @@ public sealed class MainViewModel : ObservableObject
             .Count(item => _processManager.IsRunning(item.Id));
     }
 }
+
+public sealed record LogDisplayUpdateEventArgs(
+    string? ReplacementText,
+    int CharactersToRemove,
+    string TextToAppend);
 
 public enum GroupFilterKind
 {
