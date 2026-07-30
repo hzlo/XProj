@@ -12,7 +12,7 @@
     <AssemblyTitle>XProj</AssemblyTitle>
     <Description>XProj</Description>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
-    <Version>1.2.1</Version>
+    <Version>1.3.0</Version>
     <Product>XProj</Product>
     <Authors>hzlo</Authors>
   </PropertyGroup>
@@ -21,6 +21,10 @@
     <Resource Include="Assets\icon.ico" />
     <Resource Include="Assets\logo_dark.png" />
     <Resource Include="Assets\logo_light.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Material.Icons.WPF" Version="3.0.2" />
   </ItemGroup>
 
 </Project>

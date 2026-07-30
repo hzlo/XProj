@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:ProjectManager.Wpf.ViewModels"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:mi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
         Title="XProj"
         Icon="Assets/icon.ico"
         Width="1440"
@@ -172,6 +173,42 @@
 
         <Style x:Key="ActionChip" TargetType="Button" BasedOn="{StaticResource IconButton}" />
 
+        <Style x:Key="RunningStatusChip" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{DynamicResource TitleStatusBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Surface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource PressedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="CommandButton" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource SubtleHoverBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
@@ -244,21 +281,134 @@
                     <TextBlock Text="XProj" FontSize="13" />
                     <TextBlock Text="本地工作台" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="10,1,0,0" />
                 </StackPanel>
-                <Border Background="{DynamicResource TitleStatusBrush}" BorderBrush="{DynamicResource SoftBorderBrush}" BorderThickness="1"
-                        CornerRadius="12" Padding="10,5" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                        <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11">
-                            <Run Text="运行中 " /><Run Text="{Binding RunningCount, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
-                        </TextBlock>
-                    </StackPanel>
-                </Border>
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ToggleButton x:Name="RunningStatusButton"
+                                  Style="{StaticResource RunningStatusChip}"
+                                  shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                  AutomationProperties.Name="查看运行中的命令"
+                                  MouseEnter="RunningStatus_MouseEnter"
+                                  MouseLeave="RunningStatus_MouseLeave"
+                                  Click="RunningStatus_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11">
+                                <Run Text="运行中 " /><Run Text="{Binding RunningCount, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </ToggleButton>
+                    <Popup x:Name="RunningStatusPopup"
+                           DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                           PlacementTarget="{Binding ElementName=RunningStatusButton}"
+                           Placement="Bottom"
+                           VerticalOffset="7"
+                           AllowsTransparency="True"
+                           PopupAnimation="Fade"
+                           StaysOpen="True"
+                           Closed="RunningStatusPopup_Closed">
+                        <Border x:Name="RunningPopoverSurface"
+                                Width="340"
+                                MaxHeight="420"
+                                Background="{DynamicResource PopupBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="14"
+                                Padding="14"
+                                MouseEnter="RunningPopover_MouseEnter"
+                                MouseLeave="RunningPopover_MouseLeave">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid Margin="2,0,2,11">
+                                    <TextBlock Text="运行中的命令" Style="{StaticResource SectionTitle}" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="{DynamicResource SuccessBrush}" Margin="0,0,6,0" />
+                                        <TextBlock Text="{Binding RunningCount}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <ScrollViewer Grid.Row="1" MaxHeight="310" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding RunningCommands}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource InsetPanelBrush}"
+                                                        BorderBrush="{DynamicResource SoftBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="10"
+                                                        Padding="11,9"
+                                                        Margin="0,0,0,7">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="8" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Ellipse Width="6" Height="6" Fill="{DynamicResource SuccessBrush}"
+                                                                 HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,7,0,0" />
+                                                        <StackPanel Grid.Column="1" Margin="9,0,0,0">
+                                                            <TextBlock Text="{Binding ProjectName}"
+                                                                       Foreground="{DynamicResource MutedTextBrush}"
+                                                                       FontSize="10"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding CommandName}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontSize="12"
+                                                                       FontWeight="SemiBold"
+                                                                       Margin="0,2,0,0"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding CommandText}"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                       FontFamily="Consolas"
+                                                                       FontSize="10"
+                                                                       Margin="0,3,0,0"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <TextBlock Grid.Row="1"
+                                           Text="当前没有正在运行的命令"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,24,0,26">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RunningCount}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0">
+                                    <mi:MaterialIcon Kind="PinOutline" Width="12" Height="12" Foreground="{DynamicResource MutedTextBrush}" Margin="0,0,5,0" />
+                                    <TextBlock Text="单击顶部状态可驻留" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Popup>
+                </Grid>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Content="&#xE713;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Style="{StaticResource TitleBarButton}"
-                            ToolTip="设置" Click="Settings_Click" />
-                    <Button Content="—" Style="{StaticResource TitleBarButton}" ToolTip="最小化" Click="MinimizeWindow_Click" />
-                    <Button x:Name="MaximizeButton" Content="□" Style="{StaticResource TitleBarButton}" ToolTip="最大化" Click="MaximizeWindow_Click" />
-                    <Button Content="×" Style="{StaticResource TitleBarButton}" Foreground="{DynamicResource MutedTextBrush}" ToolTip="关闭窗口" Click="CloseWindow_Click" />
+                    <Button Style="{StaticResource TitleBarButton}" ToolTip="设置" Click="Settings_Click">
+                        <mi:MaterialIcon Kind="CogOutline" Width="15" Height="15" />
+                    </Button>
+                    <Button Style="{StaticResource TitleBarButton}" ToolTip="最小化" Click="MinimizeWindow_Click">
+                        <mi:MaterialIcon Kind="WindowMinimize" Width="14" Height="14" />
+                    </Button>
+                    <Button x:Name="MaximizeButton" Style="{StaticResource TitleBarButton}" ToolTip="最大化" Click="MaximizeWindow_Click">
+                        <mi:MaterialIcon Kind="WindowMaximize" Width="14" Height="14" />
+                    </Button>
+                    <Button Style="{StaticResource TitleBarButton}" Foreground="{DynamicResource MutedTextBrush}" ToolTip="关闭窗口" Click="CloseWindow_Click">
+                        <mi:MaterialIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
                 </StackPanel>
             </Grid>
 
@@ -274,29 +424,19 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid Margin="4,4,2,14">
                             <StackPanel>
                                 <TextBlock Text="工作空间" Style="{StaticResource SectionTitle}" />
                                 <TextBlock Text="按分组浏览全部项目" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,4,0,0" />
                             </StackPanel>
-                            <Button Content="&#xE710;" HorizontalAlignment="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource AccentBrush}"
-                                    ToolTip="新建分组" Click="AddGroup_Click" />
+                            <Button HorizontalAlignment="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource AccentBrush}"
+                                    ToolTip="新建分组" Click="AddGroup_Click">
+                                <mi:MaterialIcon Kind="Plus" Width="16" Height="16" />
+                            </Button>
                         </Grid>
 
                         <TreeView x:Name="GroupTree" Grid.Row="1" ItemsSource="{Binding GroupItems}" SelectedItemChanged="GroupTree_SelectedItemChanged" />
-
-                        <Border Grid.Row="2" Style="{StaticResource InsetCardBorder}" Padding="5" Margin="0,12,0,0">
-                            <Grid>
-                                <TextBlock Text="选中分组" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Content="&#xE70F;" Style="{StaticResource IconButton}" ToolTip="编辑分组" IsEnabled="{Binding CanEditSelectedGroup}" Click="EditGroup_Click" />
-                                    <Button Content="&#xE74D;" Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}" ToolTip="删除分组"
-                                            IsEnabled="{Binding CanEditSelectedGroup}" Click="DeleteGroup_Click" />
-                                </StackPanel>
-                            </Grid>
-                        </Border>
                     </Grid>
                 </Border>
 
@@ -314,14 +454,16 @@
                                     <TextBlock Text="{Binding Projects.Count}" Foreground="{DynamicResource AccentBrush}" FontSize="11" />
                                 </Border>
                             </StackPanel>
-                            <Button Content="&#xE710;" HorizontalAlignment="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource AccentBrush}"
-                                    ToolTip="添加项目" Click="AddProject_Click" />
+                            <Button HorizontalAlignment="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource AccentBrush}"
+                                    ToolTip="添加项目" Click="AddProject_Click">
+                                <mi:MaterialIcon Kind="Plus" Width="16" Height="16" />
+                            </Button>
                         </Grid>
 
                         <Grid Grid.Row="1" Margin="0,0,0,12">
                             <TextBox Height="40" Padding="36,9,12,9" Tag="搜索项目、目录或命令" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-                            <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource MutedTextBrush}"
-                                       FontSize="13" Margin="13,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
+                            <mi:MaterialIcon Kind="Magnify" Width="14" Height="14" Foreground="{DynamicResource MutedTextBrush}"
+                                             Margin="13,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
                         </Grid>
 
                         <Grid Grid.Row="2">
@@ -365,8 +507,8 @@
                                     </Style>
                                 </StackPanel.Style>
                                 <Border Width="52" Height="52" Background="{DynamicResource SelectedBrush}" CornerRadius="17" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Foreground="{DynamicResource AccentBrush}"
-                                               FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <mi:MaterialIcon Kind="Plus" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <TextBlock Text="还没有项目" FontSize="15" HorizontalAlignment="Center" Margin="0,14,0,5" />
                                 <TextBlock Text="添加目录后即可集中运行命令" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" />
@@ -414,10 +556,18 @@
                                                Margin="0,6,0,0" ToolTip="{Binding SelectedProject.WorkingDirectory}" />
                                 </StackPanel>
                                 <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                    <Button Content="&#xE70F;" Style="{StaticResource ActionChip}" ToolTip="编辑项目" Click="EditProject_Click" />
-                                    <Button Content="&#xE8B7;" Style="{StaticResource ActionChip}" ToolTip="打开目录" Click="OpenFolder_Click" />
-                                    <Button Content="&#xE756;" Style="{StaticResource ActionChip}" ToolTip="打开终端" Click="OpenTerminal_Click" />
-                                    <Button Content="&#xE74D;" Style="{StaticResource ActionChip}" Foreground="{DynamicResource DangerBrush}" ToolTip="删除项目" Click="DeleteProject_Click" />
+                                    <Button Style="{StaticResource ActionChip}" ToolTip="编辑项目" Click="EditProject_Click">
+                                        <mi:MaterialIcon Kind="PencilOutline" Width="15" Height="15" />
+                                    </Button>
+                                    <Button Style="{StaticResource ActionChip}" ToolTip="打开目录" Click="OpenFolder_Click">
+                                        <mi:MaterialIcon Kind="FolderOpenOutline" Width="16" Height="16" />
+                                    </Button>
+                                    <Button Style="{StaticResource ActionChip}" ToolTip="打开终端" Click="OpenTerminal_Click">
+                                        <mi:MaterialIcon Kind="ConsoleLine" Width="16" Height="16" />
+                                    </Button>
+                                    <Button Style="{StaticResource ActionChip}" Foreground="{DynamicResource DangerBrush}" ToolTip="删除项目" Click="DeleteProject_Click">
+                                        <mi:MaterialIcon Kind="TrashCanOutline" Width="15" Height="15" />
+                                    </Button>
                                 </WrapPanel>
                                 <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="2,16,0,-7">
                                     <Grid.ColumnDefinitions>
@@ -495,12 +645,18 @@
                                         </Border>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Button Content="&#xE71A;" Style="{StaticResource ActionChip}" Foreground="{DynamicResource WarningBrush}" ToolTip="停止命令"
-                                                IsEnabled="{Binding SelectedCommand.CanStop, FallbackValue=False, TargetNullValue=False}" Click="StopCommand_Click" />
-                                        <Button Content="&#xE72C;" Style="{StaticResource ActionChip}" ToolTip="重启命令"
-                                                IsEnabled="{Binding HasSelectedCommand}" Click="RestartCommand_Click" />
-                                        <Button Content="&#xE75C;" Style="{StaticResource ActionChip}" ToolTip="清空日志"
-                                                IsEnabled="{Binding HasSelectedCommand}" Click="ClearLog_Click" />
+                                        <Button Style="{StaticResource ActionChip}" Foreground="{DynamicResource WarningBrush}" ToolTip="停止命令"
+                                                IsEnabled="{Binding SelectedCommand.CanStop, FallbackValue=False, TargetNullValue=False}" Click="StopCommand_Click">
+                                            <mi:MaterialIcon Kind="StopCircleOutline" Width="16" Height="16" />
+                                        </Button>
+                                        <Button Style="{StaticResource ActionChip}" ToolTip="重启命令"
+                                                IsEnabled="{Binding HasSelectedCommand}" Click="RestartCommand_Click">
+                                            <mi:MaterialIcon Kind="Restart" Width="16" Height="16" />
+                                        </Button>
+                                        <Button Style="{StaticResource ActionChip}" ToolTip="清空日志"
+                                                IsEnabled="{Binding HasSelectedCommand}" Click="ClearLog_Click">
+                                            <mi:MaterialIcon Kind="DeleteSweepOutline" Width="16" Height="16" />
+                                        </Button>
                                     </StackPanel>
                                 </Grid>
                                 <TextBox x:Name="LogTextBox" Grid.Row="1"

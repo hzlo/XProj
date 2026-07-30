@@ -50,8 +50,4 @@
         <GradientStop Color="#FFF1F3F7" Offset="0.55" />
         <GradientStop Color="#FFF8F4F6" Offset="1" />
     </LinearGradientBrush>
-    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#FF178BFF" Offset="0" />
-        <GradientStop Color="#FF0071E3" Offset="1" />
-    </LinearGradientBrush>
 </ResourceDictionary>

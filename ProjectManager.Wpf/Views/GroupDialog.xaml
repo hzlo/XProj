@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:mi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
         Title="分组"
         Width="470"
         Height="420"
@@ -26,8 +27,10 @@
             <Grid Margin="18,0,10,0">
                 <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
                            VerticalAlignment="Center" />
-                <Button Content="×" HorizontalAlignment="Right" Style="{StaticResource TitleBarButton}"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True" IsCancel="True" />
+                <Button HorizontalAlignment="Right" Style="{StaticResource TitleBarButton}"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True" IsCancel="True">
+                    <mi:MaterialIcon Kind="Close" Width="14" Height="14" />
+                </Button>
             </Grid>
 
             <StackPanel Grid.Row="1" Margin="28,14,28,18">

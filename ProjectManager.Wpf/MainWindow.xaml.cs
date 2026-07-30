@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Threading;
 using ProjectManager.Wpf.Infrastructure;
 using ProjectManager.Wpf.Models;
 using ProjectManager.Wpf.ViewModels;
@@ -14,12 +16,15 @@ public partial class MainWindow : Window
 {
     private readonly SystemLauncher _systemLauncher;
     private readonly UpdateChecker _updateChecker;
+    private readonly UpdateInstaller _updateInstaller;
     private readonly MainViewModel _viewModel;
     private readonly Forms.ContextMenuStrip _trayMenu;
     private readonly Forms.NotifyIcon _trayIcon;
+    private readonly DispatcherTimer _runningPopoverCloseTimer;
     private bool _shutdownCompleted;
     private bool _checkingForUpdates;
     private bool _isExiting;
+    private bool _updateRestartConfirmed;
     private bool _logDisplayDirty;
     private bool _trayHintShown;
 
@@ -28,10 +33,17 @@ public partial class MainWindow : Window
         InitializeComponent();
         _systemLauncher = new SystemLauncher();
         _updateChecker = new UpdateChecker();
+        _updateInstaller = new UpdateInstaller();
         _viewModel = new MainViewModel(new JsonDataStore(), new ProcessManager(), _systemLauncher);
         _viewModel.LogDisplayUpdated += ViewModelOnLogDisplayUpdated;
         DataContext = _viewModel;
         StateChanged += (_, _) => RefreshDeferredLogDisplay();
+
+        _runningPopoverCloseTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(180)
+        };
+        _runningPopoverCloseTimer.Tick += (_, _) => CloseRunningPopoverIfPointerLeft();
 
         _trayMenu = new Forms.ContextMenuStrip();
         var showItem = new Forms.ToolStripMenuItem("打开 XProj");
@@ -66,6 +78,60 @@ public partial class MainWindow : Window
         catch (Exception exception)
         {
             ShowError("加载项目数据失败", exception);
+        }
+    }
+
+    private void RunningStatus_MouseEnter(object sender, MouseEventArgs e) => ShowRunningPopover();
+
+    private void RunningStatus_MouseLeave(object sender, MouseEventArgs e) => ScheduleRunningPopoverClose();
+
+    private void RunningPopover_MouseEnter(object sender, MouseEventArgs e) => _runningPopoverCloseTimer.Stop();
+
+    private void RunningPopover_MouseLeave(object sender, MouseEventArgs e) => ScheduleRunningPopoverClose();
+
+    private void RunningStatus_Click(object sender, RoutedEventArgs e)
+    {
+        if (RunningStatusButton.IsChecked == true)
+        {
+            ShowRunningPopover();
+        }
+        else
+        {
+            ScheduleRunningPopoverClose();
+        }
+    }
+
+    private void RunningStatusPopup_Closed(object? sender, EventArgs e)
+    {
+        _runningPopoverCloseTimer.Stop();
+        RunningStatusButton.IsChecked = false;
+    }
+
+    private void ShowRunningPopover()
+    {
+        _runningPopoverCloseTimer.Stop();
+        RunningStatusPopup.IsOpen = true;
+    }
+
+    private void ScheduleRunningPopoverClose()
+    {
+        if (RunningStatusButton.IsChecked == true)
+        {
+            return;
+        }
+
+        _runningPopoverCloseTimer.Stop();
+        _runningPopoverCloseTimer.Start();
+    }
+
+    private void CloseRunningPopoverIfPointerLeft()
+    {
+        _runningPopoverCloseTimer.Stop();
+        if (RunningStatusButton.IsChecked != true &&
+            !RunningStatusButton.IsMouseOver &&
+            !RunningPopoverSurface.IsMouseOver)
+        {
+            RunningStatusPopup.IsOpen = false;
         }
     }
 
@@ -382,7 +448,14 @@ public partial class MainWindow : Window
     {
         if (MaximizeButton is not null)
         {
-            MaximizeButton.Content = WindowState == WindowState.Maximized ? "❐" : "□";
+            MaximizeButton.Content = new Material.Icons.WPF.MaterialIcon
+            {
+                Kind = WindowState == WindowState.Maximized
+                    ? Material.Icons.MaterialIconKind.WindowRestore
+                    : Material.Icons.MaterialIconKind.WindowMaximize,
+                Width = 14,
+                Height = 14
+            };
             MaximizeButton.ToolTip = WindowState == WindowState.Maximized ? "还原" : "最大化";
         }
     }
@@ -526,11 +599,11 @@ public partial class MainWindow : Window
                 if (AppDialog.Confirm(
                         dialogOwner,
                         "发现新版本",
-                        $"当前版本：v{result.CurrentVersion}\n最新版本：v{result.LatestVersion}\n\n是否前往 GitHub Releases 下载？",
-                        "前往下载",
+                        $"当前版本：v{result.CurrentVersion}\n最新版本：v{result.LatestVersion}\n\n是否立即下载并安装更新？",
+                        "下载更新",
                         AppDialogKind.Information))
                 {
-                    _systemLauncher.OpenUrl(result.ReleaseUrl);
+                    await DownloadAndInstallUpdateAsync(dialogOwner, result);
                 }
             }
             else if (showUpToDateMessage)
@@ -560,6 +633,61 @@ public partial class MainWindow : Window
     private static Window ResolveDialogOwner(Window preferredOwner) =>
         Application.Current.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive) ?? preferredOwner;
 
+    private async Task DownloadAndInstallUpdateAsync(Window owner, UpdateCheckResult result)
+    {
+        string? packagePath = null;
+        try
+        {
+            var progress = new Progress<int>(percent =>
+                _viewModel.SetStatus($"正在下载更新 v{result.LatestVersion}… {percent}%"));
+            _viewModel.SetStatus($"正在下载更新 v{result.LatestVersion}…");
+            packagePath = await _updateInstaller.DownloadAsync(result, progress);
+            _viewModel.SetStatus($"更新 v{result.LatestVersion} 下载完成");
+
+            if (!AppDialog.Confirm(
+                    owner,
+                    "下载完成",
+                    $"新版本 v{result.LatestVersion} 已下载完成。\n\n重启应用后自动完成安装，是否立即重启？",
+                    "重启并更新",
+                    AppDialogKind.Information))
+            {
+                _updateInstaller.DiscardPackage(packagePath);
+                _viewModel.SetStatus($"已取消安装 v{result.LatestVersion}，可稍后重新检查更新");
+                return;
+            }
+
+            if (_viewModel.RunningCount > 0 && !AppDialog.Confirm(
+                    owner,
+                    "重启并更新",
+                    $"当前有 {_viewModel.RunningCount} 个命令正在运行，重启前将自动停止它们。是否继续？",
+                    "停止并重启"))
+            {
+                _updateInstaller.DiscardPackage(packagePath);
+                _viewModel.SetStatus($"已取消安装 v{result.LatestVersion}，可稍后重新检查更新");
+                return;
+            }
+
+            _updateRestartConfirmed = true;
+            _updateInstaller.ScheduleApplyAndRelaunch(packagePath);
+            _viewModel.SetStatus("正在重启以完成更新…");
+            await ExitApplicationAsync();
+        }
+        catch (Exception exception)
+        {
+            _updateRestartConfirmed = false;
+            if (packagePath is not null)
+            {
+                _updateInstaller.DiscardPackage(packagePath);
+            }
+
+            var message = exception is TaskCanceledException
+                ? "下载更新超时，请检查网络后重试。"
+                : $"无法完成更新：{exception.Message}";
+            AppDialog.Show(owner, "更新失败", message, AppDialogKind.Error);
+            _viewModel.SetStatus("更新失败");
+        }
+    }
+
     private async Task ExitApplicationAsync()
     {
         if (_isExiting)
@@ -567,7 +695,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_viewModel.RunningCount > 0)
+        if (!_updateRestartConfirmed && _viewModel.RunningCount > 0)
         {
             ShowFromTray();
             if (!AppDialog.Confirm(
@@ -595,6 +723,7 @@ public partial class MainWindow : Window
         catch (Exception exception)
         {
             _isExiting = false;
+            _updateRestartConfirmed = false;
             ShowFromTray();
             ShowError("退出前清理进程失败", exception);
         }

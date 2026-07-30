@@ -53,6 +53,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<GroupTreeItem> GroupItems { get; } = new();
     public ObservableCollection<ManagedProject> Projects { get; } = new();
     public ObservableCollection<CommandRuntimeViewModel> Commands { get; } = new();
+    public ObservableCollection<RunningCommandSummary> RunningCommands { get; } = new();
 
     public GroupTreeItem? SelectedGroup
     {
@@ -173,6 +174,8 @@ public sealed class MainViewModel : ObservableObject
     public bool IsLogFontBold => LogFontWeight == FontWeights.Bold;
     public bool IsLogFontItalic => LogFontStyle == FontStyles.Italic;
     public AppSettings CurrentSettings => _data.Settings.Clone();
+
+    public void SetStatus(string text) => StatusText = text;
 
     public async Task InitializeAsync()
     {
@@ -956,11 +959,25 @@ public sealed class MainViewModel : ObservableObject
 
     private void UpdateRunningCount()
     {
-        RunningCount = _data.Projects
-            .SelectMany(item => item.Commands)
-            .Count(item => _processManager.IsRunning(item.Id));
+        var runningCommands = _data.Projects
+            .SelectMany(project => project.Commands
+                .Where(command => _processManager.IsRunning(command.Id))
+                .Select(command => new RunningCommandSummary(project.Name, command.Name, command.CommandText)))
+            .OrderBy(item => item.ProjectName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.CommandName, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        RunningCommands.Clear();
+        foreach (var command in runningCommands)
+        {
+            RunningCommands.Add(command);
+        }
+
+        RunningCount = runningCommands.Count;
     }
 }
+
+public sealed record RunningCommandSummary(string ProjectName, string CommandName, string CommandText);
 
 public sealed record LogDisplayUpdateEventArgs(
     string? ReplacementText,
