@@ -8,9 +8,10 @@
         MaxHeight="620"
         ResizeMode="NoResize"
         WindowStyle="None"
+        AllowsTransparency="True"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="{DynamicResource WindowBrush}">
+        Background="Transparent">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="0" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -19,6 +20,7 @@
             BorderBrush="{DynamicResource BorderBrush}"
             BorderThickness="1"
             CornerRadius="16"
+            ClipToBounds="True"
             Padding="24,0,24,24">
         <Grid>
             <Grid.RowDefinitions>

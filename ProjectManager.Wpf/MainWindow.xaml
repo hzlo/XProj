@@ -12,7 +12,8 @@
         MinHeight="700"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
-        Background="{DynamicResource WindowBrush}"
+        AllowsTransparency="True"
+        Background="Transparent"
         Loaded="Window_Loaded"
         Closing="Window_Closing"
         StateChanged="Window_StateChanged">
@@ -39,6 +40,43 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource SelectedBrush}" />
                                 <Setter TargetName="ItemSurface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ProjectMetaButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinWidth" Value="32" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource InsetPanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource PressedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.32" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -173,6 +211,45 @@
 
         <Style x:Key="ActionChip" TargetType="Button" BasedOn="{StaticResource IconButton}" />
 
+        <Style x:Key="LogFilterToggle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="64" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Background" Value="{DynamicResource InsetPanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Surface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="RunningStatusChip" TargetType="ToggleButton">
             <Setter Property="Background" Value="{DynamicResource TitleStatusBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
@@ -245,7 +322,10 @@
         </Style>
     </Window.Resources>
 
-    <Grid Background="{DynamicResource AppBackdropBrush}">
+    <Border Background="{DynamicResource AppBackdropBrush}"
+            CornerRadius="16"
+            ClipToBounds="True">
+    <Grid>
         <Grid IsHitTestVisible="False" ClipToBounds="True">
             <Ellipse Width="520" Height="520" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-280,-160,0">
                 <Ellipse.Fill>
@@ -347,7 +427,7 @@
                                                         <Ellipse Width="6" Height="6" Fill="{DynamicResource SuccessBrush}"
                                                                  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,7,0,0" />
                                                         <StackPanel Grid.Column="1" Margin="9,0,0,0">
-                                                            <TextBlock Text="{Binding ProjectName}"
+                                                            <TextBlock Text="{Binding ProjectDisplayName}"
                                                                        Foreground="{DynamicResource MutedTextBrush}"
                                                                        FontSize="10"
                                                                        TextTrimming="CharacterEllipsis" />
@@ -363,6 +443,17 @@
                                                                        FontSize="10"
                                                                        Margin="0,3,0,0"
                                                                        TextTrimming="CharacterEllipsis" />
+                                                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                                                <TextBlock Text="{Binding DurationDisplay}"
+                                                                           Foreground="{DynamicResource MutedTextBrush}"
+                                                                           FontSize="10" />
+                                                                <TextBlock Text=" · "
+                                                                           Foreground="{DynamicResource MutedTextBrush}"
+                                                                           FontSize="10" />
+                                                                <TextBlock Text="{Binding MemoryDisplay}"
+                                                                           Foreground="{DynamicResource MutedTextBrush}"
+                                                                           FontSize="10" />
+                                                            </StackPanel>
                                                         </StackPanel>
                                                     </Grid>
                                                 </Border>
@@ -397,6 +488,9 @@
                     </Popup>
                 </Grid>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource TitleBarButton}" ToolTip="运行方案" Click="RunPlans_Click">
+                        <mi:MaterialIcon Kind="PlayCircleOutline" Width="15" Height="15" />
+                    </Button>
                     <Button Style="{StaticResource TitleBarButton}" ToolTip="设置" Click="Settings_Click">
                         <mi:MaterialIcon Kind="CogOutline" Width="15" Height="15" />
                     </Button>
@@ -436,7 +530,14 @@
                             </Button>
                         </Grid>
 
-                        <TreeView x:Name="GroupTree" Grid.Row="1" ItemsSource="{Binding GroupItems}" SelectedItemChanged="GroupTree_SelectedItemChanged" />
+                        <TreeView x:Name="GroupTree"
+                                  Grid.Row="1"
+                                  ItemsSource="{Binding GroupItems}"
+                                  AllowDrop="True"
+                                  PreviewMouseLeftButtonDown="SortableItem_PreviewMouseLeftButtonDown"
+                                  PreviewMouseMove="SortableItem_PreviewMouseMove"
+                                  Drop="SortableItem_Drop"
+                                  SelectedItemChanged="GroupTree_SelectedItemChanged" />
                     </Grid>
                 </Border>
 
@@ -454,10 +555,16 @@
                                     <TextBlock Text="{Binding Projects.Count}" Foreground="{DynamicResource AccentBrush}" FontSize="11" />
                                 </Border>
                             </StackPanel>
-                            <Button HorizontalAlignment="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource AccentBrush}"
-                                    ToolTip="添加项目" Click="AddProject_Click">
-                                <mi:MaterialIcon Kind="Plus" Width="16" Height="16" />
-                            </Button>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource AccentBrush}"
+                                        ToolTip="扫描项目" Click="DiscoverProjects_Click">
+                                    <mi:MaterialIcon Kind="FolderSearchOutline" Width="16" Height="16" />
+                                </Button>
+                                <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource AccentBrush}"
+                                        ToolTip="添加项目" Click="AddProject_Click">
+                                    <mi:MaterialIcon Kind="Plus" Width="16" Height="16" />
+                                </Button>
+                            </StackPanel>
                         </Grid>
 
                         <Grid Grid.Row="1" Margin="0,0,0,12">
@@ -467,7 +574,13 @@
                         </Grid>
 
                         <Grid Grid.Row="2">
-                            <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}"
+                            <ListBox x:Name="ProjectList"
+                                     ItemsSource="{Binding Projects}"
+                                     SelectedItem="{Binding SelectedProject, Mode=TwoWay}"
+                                     AllowDrop="True"
+                                     PreviewMouseLeftButtonDown="SortableItem_PreviewMouseLeftButtonDown"
+                                     PreviewMouseMove="SortableItem_PreviewMouseMove"
+                                     Drop="SortableItem_Drop"
                                      ItemContainerStyle="{StaticResource ProjectListItem}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
@@ -485,12 +598,47 @@
                                                 </ContextMenu>
                                             </Grid.ContextMenu>
                                             <StackPanel>
-                                                <Grid>
-                                                    <TextBlock Text="{Binding Name}" FontSize="14" TextTrimming="CharacterEllipsis" Margin="0,0,52,0" />
-                                                    <Border HorizontalAlignment="Right" Background="{DynamicResource InsetPanelBrush}" CornerRadius="7" Padding="6,1">
-                                                        <TextBlock Foreground="{DynamicResource MutedTextBrush}" FontSize="10"><Run Text="{Binding Commands.Count, Mode=OneWay}" /><Run Text=" 项" /></TextBlock>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="88" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Name}" FontSize="14" TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Grid.Column="1"
+                                                            Orientation="Horizontal"
+                                                            HorizontalAlignment="Right"
+                                                            VerticalAlignment="Center">
+                                                    <Border Width="44" Height="28"
+                                                            Margin="0,0,6,0"
+                                                            Background="{DynamicResource InsetPanelBrush}"
+                                                            BorderBrush="{DynamicResource SoftBorderBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="8"
+                                                            Padding="6,0">
+                                                        <TextBlock Foreground="{DynamicResource MutedTextBrush}"
+                                                                   FontSize="10"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   TextAlignment="Center">
+                                                            <Run Text="{Binding Commands.Count, Mode=OneWay}" /><Run Text=" 项" />
+                                                        </TextBlock>
                                                     </Border>
-                                                </Grid>
+                                                    <Button Padding="0"
+                                                            ToolTip="收藏项目" Click="ToggleFavorite_Click">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button" BasedOn="{StaticResource ProjectMetaButton}">
+                                                                <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                        <mi:MaterialIcon Kind="StarOutline" Width="15" Height="15" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
                                                 <TextBlock Text="{Binding WorkingDirectory}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
                                                            TextTrimming="CharacterEllipsis" Margin="0,6,0,0" ToolTip="{Binding WorkingDirectory}" />
                                             </StackPanel>
@@ -556,6 +704,15 @@
                                                Margin="0,6,0,0" ToolTip="{Binding SelectedProject.WorkingDirectory}" />
                                 </StackPanel>
                                 <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource ActionChip}" ToolTip="收藏项目" Click="ToggleFavorite_Click">
+                                        <mi:MaterialIcon Kind="StarOutline" Width="15" Height="15" />
+                                    </Button>
+                                    <Button Style="{StaticResource ActionChip}" ToolTip="打开项目 URL" Click="OpenProjectUrl_Click">
+                                        <mi:MaterialIcon Kind="OpenInNew" Width="15" Height="15" />
+                                    </Button>
+                                    <Button Style="{StaticResource ActionChip}" ToolTip="检查健康状态" Click="CheckProjectHealth_Click">
+                                        <mi:MaterialIcon Kind="CheckCircleOutline" Width="15" Height="15" />
+                                    </Button>
                                     <Button Style="{StaticResource ActionChip}" ToolTip="编辑项目" Click="EditProject_Click">
                                         <mi:MaterialIcon Kind="PencilOutline" Width="15" Height="15" />
                                     </Button>
@@ -575,7 +732,13 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="项目命令" Style="{StaticResource SectionLabel}" Margin="0,9,14,0" VerticalAlignment="Top" />
-                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Commands}">
+                                    <ItemsControl x:Name="CommandItemsControl"
+                                                  Grid.Column="1"
+                                                  ItemsSource="{Binding Commands}"
+                                                  AllowDrop="True"
+                                                  PreviewMouseLeftButtonDown="SortableItem_PreviewMouseLeftButtonDown"
+                                                  PreviewMouseMove="SortableItem_PreviewMouseMove"
+                                                  Drop="SortableItem_Drop">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <WrapPanel Orientation="Horizontal" />
@@ -645,6 +808,25 @@
                                         </Border>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Grid Width="178" Height="38" Margin="0,0,7,0">
+                                            <TextBox Height="38"
+                                                     Padding="28,9,8,9"
+                                                     Background="{DynamicResource InsetPanelBrush}"
+                                                     BorderBrush="{DynamicResource SoftBorderBrush}"
+                                                     Tag="搜索日志"
+                                                     Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                            <mi:MaterialIcon Kind="Magnify" Width="13" Height="13"
+                                                             Foreground="{DynamicResource MutedTextBrush}"
+                                                             Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                             IsHitTestVisible="False" />
+                                        </Grid>
+                                        <ToggleButton Style="{StaticResource LogFilterToggle}" IsChecked="{Binding LogErrorsOnly, Mode=TwoWay}"
+                                                      ToolTip="仅显示错误日志">
+                                            <TextBlock Text="仅错误" FontSize="10" />
+                                        </ToggleButton>
+                                        <Button Style="{StaticResource ActionChip}" ToolTip="导出日志" Click="ExportLog_Click">
+                                            <mi:MaterialIcon Kind="DownloadOutline" Width="15" Height="15" />
+                                        </Button>
                                         <Button Style="{StaticResource ActionChip}" Foreground="{DynamicResource WarningBrush}" ToolTip="停止命令"
                                                 IsEnabled="{Binding SelectedCommand.CanStop, FallbackValue=False, TargetNullValue=False}" Click="StopCommand_Click">
                                             <mi:MaterialIcon Kind="StopCircleOutline" Width="16" Height="16" />
@@ -681,4 +863,5 @@
             </Grid>
         </Grid>
     </Grid>
+    </Border>
 </Window>

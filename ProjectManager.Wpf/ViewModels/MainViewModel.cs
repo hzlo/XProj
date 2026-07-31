@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Windows;
@@ -31,6 +32,8 @@ public sealed class MainViewModel : ObservableObject
     private ManagedProject? _selectedProject;
     private CommandRuntimeViewModel? _selectedCommand;
     private string _searchText = string.Empty;
+    private string _logSearchText = string.Empty;
+    private bool _logErrorsOnly;
     private FontFamily _logFontFamily = new("Consolas");
     private double _logFontSize = 11;
     private FontWeight _logFontWeight = FontWeights.Normal;
@@ -54,6 +57,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ManagedProject> Projects { get; } = new();
     public ObservableCollection<CommandRuntimeViewModel> Commands { get; } = new();
     public ObservableCollection<RunningCommandSummary> RunningCommands { get; } = new();
+    public ObservableCollection<RunPlan> RunPlans { get; } = new();
 
     public GroupTreeItem? SelectedGroup
     {
@@ -77,9 +81,15 @@ public sealed class MainViewModel : ObservableObject
         get => _selectedProject;
         set
         {
+            var previousProjectId = _selectedProject?.Id;
             if (SetProperty(ref _selectedProject, value))
             {
                 OnPropertyChanged(nameof(HasSelectedProject));
+                if (value is not null && previousProjectId != value.Id)
+                {
+                    value.LastUsedAt = DateTime.Now;
+                    _ = _dataStore.SaveAsync(_data);
+                }
                 RefreshCommands();
             }
         }
@@ -114,6 +124,30 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _searchText, value))
             {
                 RefreshProjects();
+            }
+        }
+    }
+
+    public string LogSearchText
+    {
+        get => _logSearchText;
+        set
+        {
+            if (SetProperty(ref _logSearchText, value))
+            {
+                RefreshLogText();
+            }
+        }
+    }
+
+    public bool LogErrorsOnly
+    {
+        get => _logErrorsOnly;
+        set
+        {
+            if (SetProperty(ref _logErrorsOnly, value))
+            {
+                RefreshLogText();
             }
         }
     }
@@ -182,7 +216,9 @@ public sealed class MainViewModel : ObservableObject
         _data = await _dataStore.LoadAsync();
         ApplyLogFontSettings();
         NormalizeGroupHierarchy();
+        NormalizeSortOrders();
         RebuildGroupTree(GroupFilterKind.All, null);
+        RefreshRunPlans();
         StatusText = $"已加载 {_data.Projects.Count} 个项目";
     }
 
@@ -249,6 +285,7 @@ public sealed class MainViewModel : ObservableObject
     {
         ValidateProject(project, null);
         project.Id = project.Id == Guid.Empty ? Guid.NewGuid() : project.Id;
+        project.SortOrder = NextProjectSortOrder();
         EnsureCommandIds(project);
         _data.Projects.Add(project);
         await _dataStore.SaveAsync(_data);
@@ -271,6 +308,9 @@ public sealed class MainViewModel : ObservableObject
             throw new InvalidOperationException("项目不存在或已被删除。");
         }
 
+        project.SortOrder = _data.Projects[index].SortOrder;
+        project.IsFavorite = _data.Projects[index].IsFavorite;
+        project.LastUsedAt = _data.Projects[index].LastUsedAt;
         _data.Projects[index] = project;
         await _dataStore.SaveAsync(_data);
         RefreshProjects(project.Id);
@@ -337,7 +377,12 @@ public sealed class MainViewModel : ObservableObject
         await RunCommandAsync(commandRuntime);
     }
 
-    public async Task UpdateCommandAsync(Guid commandId, string name, string commandText)
+    public async Task UpdateCommandAsync(
+        Guid commandId,
+        string name,
+        string commandText,
+        string shell,
+        string environmentVariables)
     {
         var project = SelectedProject ?? throw new InvalidOperationException("请先选择项目。");
         var command = project.Commands.SingleOrDefault(item => item.Id == commandId)
@@ -349,6 +394,8 @@ public sealed class MainViewModel : ObservableObject
 
         command.Name = name.Trim();
         command.CommandText = commandText.Trim();
+        command.Shell = shell is "PowerShell" ? "PowerShell" : "Cmd";
+        command.EnvironmentVariables = environmentVariables.Trim();
         await _dataStore.SaveAsync(_data);
         RefreshCommands(commandId);
         StatusText = $"已更新命令：{command.Name}";
@@ -394,10 +441,196 @@ public sealed class MainViewModel : ObservableObject
         _data = importedData;
         ApplyLogFontSettings();
         NormalizeGroupHierarchy();
+        NormalizeSortOrders();
         RebuildGroupTree(GroupFilterKind.All, null);
+        RefreshRunPlans();
         await _dataStore.SaveAsync(_data);
         StatusText = $"已导入 {_data.Projects.Count} 个项目";
         return CurrentSettings;
+    }
+
+    public IReadOnlyList<RunPlan> GetRunPlansSnapshot() =>
+        _data.RunPlans
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(CloneRunPlan)
+            .ToList();
+
+    public IReadOnlyList<RunPlanCommandChoice> GetRunPlanCommandChoices(RunPlan? runPlan)
+    {
+        var selectedByCommandId = (runPlan?.Commands ?? new List<RunPlanCommand>())
+            .GroupBy(item => item.CommandId)
+            .ToDictionary(item => item.Key, item => item.First());
+        var groupNamesById = _data.Groups.ToDictionary(item => item.Id, item => item.Name);
+        var choices = new List<RunPlanCommandChoice>();
+
+        foreach (var project in _data.Projects
+                     .OrderBy(item => item.SortOrder)
+                     .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var projectPrefix = project.GroupId.HasValue && groupNamesById.TryGetValue(project.GroupId.Value, out var groupName)
+                ? $"{groupName}-{project.Name}"
+                : project.Name;
+            foreach (var command in project.Commands
+                         .OrderBy(item => item.SortOrder)
+                         .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                selectedByCommandId.TryGetValue(command.Id, out var selected);
+                choices.Add(new RunPlanCommandChoice(
+                    project.Id,
+                    command.Id,
+                    projectPrefix,
+                    command.Name,
+                    selected is not null,
+                    selected?.DelaySeconds ?? 0));
+            }
+        }
+
+        return choices;
+    }
+
+    public async Task ReplaceRunPlansAsync(IEnumerable<RunPlan> runPlans)
+    {
+        var plans = runPlans.Select(CloneRunPlan).ToList();
+        ValidateRunPlans(plans);
+        AssignSortOrders(plans);
+        foreach (var plan in plans)
+        {
+            AssignSortOrders(plan.Commands);
+        }
+
+        _data.RunPlans = plans;
+        await _dataStore.SaveAsync(_data);
+        RefreshRunPlans();
+        StatusText = $"已保存 {_data.RunPlans.Count} 个运行方案";
+    }
+
+    public async Task RunPlanAsync(Guid runPlanId)
+    {
+        var plan = _data.RunPlans.SingleOrDefault(item => item.Id == runPlanId)
+            ?? throw new InvalidOperationException("运行方案不存在或已被删除。");
+        var commandRefs = plan.Commands
+            .OrderBy(item => item.SortOrder)
+            .ToList();
+        if (commandRefs.Count == 0)
+        {
+            throw new InvalidOperationException("运行方案中还没有选择命令。");
+        }
+
+        var selectedCommandIds = commandRefs.Select(item => item.CommandId).ToHashSet();
+        if (plan.StopCommandsOutsidePlan)
+        {
+            var commandsToStop = _processManager.RunningCommandIds
+                .Where(commandId => !selectedCommandIds.Contains(commandId))
+                .ToArray();
+            await Task.WhenAll(commandsToStop.Select(_processManager.StopAsync));
+            UpdateRunningCount();
+        }
+
+        foreach (var commandRef in commandRefs)
+        {
+            if (commandRef.DelaySeconds > 0)
+            {
+                StatusText = $"等待 {commandRef.DelaySeconds} 秒后继续启动方案：{plan.Name}";
+                await Task.Delay(TimeSpan.FromSeconds(commandRef.DelaySeconds));
+            }
+
+            var project = _data.Projects.SingleOrDefault(item => item.Id == commandRef.ProjectId);
+            var command = project?.Commands.SingleOrDefault(item => item.Id == commandRef.CommandId);
+            if (project is null || command is null || _processManager.IsRunning(commandRef.CommandId))
+            {
+                continue;
+            }
+
+            SelectedProject = project;
+            var runtime = Commands.FirstOrDefault(item => item.Command.Id == command.Id);
+            if (runtime is not null)
+            {
+                await RunCommandAsync(runtime);
+            }
+        }
+
+        UpdateRunningCount();
+        StatusText = $"已启动运行方案：{plan.Name}";
+    }
+
+    public void RefreshRunningSummaries() => UpdateRunningCount();
+
+    public async Task ReorderGroupAsync(Guid sourceGroupId, Guid targetGroupId, bool insertAfter)
+    {
+        if (sourceGroupId == targetGroupId)
+        {
+            return;
+        }
+
+        var source = _data.Groups.SingleOrDefault(item => item.Id == sourceGroupId);
+        var target = _data.Groups.SingleOrDefault(item => item.Id == targetGroupId);
+        if (source is null || target is null || source.ParentId != target.ParentId)
+        {
+            return;
+        }
+
+        var siblings = _data.Groups
+            .Where(item => item.ParentId == source.ParentId)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        MoveBeforeOrAfter(siblings, source, target, insertAfter);
+        AssignSortOrders(siblings);
+        await _dataStore.SaveAsync(_data);
+        RebuildGroupTree(GroupFilterKind.Group, sourceGroupId);
+        StatusText = "分组顺序已保存";
+    }
+
+    public async Task ReorderProjectAsync(Guid sourceProjectId, Guid targetProjectId, bool insertAfter)
+    {
+        if (sourceProjectId == targetProjectId)
+        {
+            return;
+        }
+
+        var source = _data.Projects.SingleOrDefault(item => item.Id == sourceProjectId);
+        var target = _data.Projects.SingleOrDefault(item => item.Id == targetProjectId);
+        if (source is null || target is null)
+        {
+            return;
+        }
+
+        var projects = _data.Projects
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        MoveBeforeOrAfter(projects, source, target, insertAfter);
+        AssignSortOrders(projects);
+        await _dataStore.SaveAsync(_data);
+        RefreshProjects(sourceProjectId);
+        StatusText = "项目顺序已保存";
+    }
+
+    public async Task ReorderCommandAsync(Guid sourceCommandId, Guid targetCommandId, bool insertAfter)
+    {
+        if (sourceCommandId == targetCommandId || SelectedProject is null)
+        {
+            return;
+        }
+
+        var source = SelectedProject.Commands.SingleOrDefault(item => item.Id == sourceCommandId);
+        var target = SelectedProject.Commands.SingleOrDefault(item => item.Id == targetCommandId);
+        if (source is null || target is null)
+        {
+            return;
+        }
+
+        var commands = SelectedProject.Commands
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        MoveBeforeOrAfter(commands, source, target, insertAfter);
+        AssignSortOrders(commands);
+        SelectedProject.Commands = commands;
+        await _dataStore.SaveAsync(_data);
+        RefreshCommands(sourceCommandId);
+        StatusText = "命令顺序已保存";
     }
 
     public void ClearSelectedLog()
@@ -430,6 +663,106 @@ public sealed class MainViewModel : ObservableObject
         _systemLauncher.OpenInEditor(project.WorkingDirectory);
     }
 
+    public void OpenSelectedProjectUrl()
+    {
+        var project = SelectedProject ?? throw new InvalidOperationException("请先选择项目。");
+        if (string.IsNullOrWhiteSpace(project.HealthCheckUrl))
+        {
+            throw new InvalidOperationException("当前项目还没有配置 URL。");
+        }
+
+        _systemLauncher.OpenUrl(project.HealthCheckUrl);
+    }
+
+    public async Task<HealthCheckResult> CheckSelectedProjectHealthAsync()
+    {
+        var project = SelectedProject ?? throw new InvalidOperationException("请先选择项目。");
+        if (!Uri.TryCreate(project.HealthCheckUrl, UriKind.Absolute, out var uri) ||
+            uri.Scheme is not ("http" or "https"))
+        {
+            throw new InvalidOperationException("请先为项目配置有效的 HTTP/HTTPS URL。");
+        }
+
+        using var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(5)
+        };
+        var startedAt = DateTime.UtcNow;
+        try
+        {
+            using var response = await client.GetAsync(uri);
+            return new HealthCheckResult(
+                true,
+                (int)response.StatusCode,
+                response.IsSuccessStatusCode,
+                DateTime.UtcNow - startedAt,
+                response.ReasonPhrase ?? string.Empty);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            return new HealthCheckResult(
+                false,
+                null,
+                false,
+                DateTime.UtcNow - startedAt,
+                exception.Message);
+        }
+    }
+
+    public async Task ToggleProjectFavoriteAsync(Guid projectId)
+    {
+        var project = _data.Projects.SingleOrDefault(item => item.Id == projectId)
+            ?? throw new InvalidOperationException("项目不存在或已被删除。");
+        project.IsFavorite = !project.IsFavorite;
+        await _dataStore.SaveAsync(_data);
+        RefreshProjects(project.Id);
+        StatusText = project.IsFavorite ? $"已收藏项目：{project.Name}" : $"已取消收藏：{project.Name}";
+    }
+
+    public async Task ExportSelectedLogAsync(string filePath)
+    {
+        if (SelectedCommand is null)
+        {
+            throw new InvalidOperationException("请先选择一个命令。");
+        }
+
+        var text = GetSelectedLogText();
+        await File.WriteAllTextAsync(filePath, text, Encoding.UTF8);
+        StatusText = "日志已导出";
+    }
+
+    public string GetSelectedLogText()
+    {
+        if (SelectedCommand is null ||
+            !_logs.TryGetValue(SelectedCommand.Command.Id, out var log))
+        {
+            return string.Empty;
+        }
+
+        var text = log.GetTailLines(_data.Settings.LogVisibleLineCount);
+        return FilterLogText(text);
+    }
+
+    public Task<IReadOnlyList<ManagedProject>> DiscoverProjectsAsync(string rootDirectory)
+    {
+        var discovered = ProjectDiscovery.Scan(rootDirectory);
+        var existingDirectories = _data.Projects
+            .Select(item => item.WorkingDirectory.TrimEnd('\\'))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<ManagedProject> result = discovered
+            .Where(item => !existingDirectories.Contains(item.WorkingDirectory.TrimEnd('\\')))
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    public async Task AddDiscoveredProjectsAsync(IEnumerable<ManagedProject> projects)
+    {
+        foreach (var project in projects.ToList())
+        {
+            await AddProjectAsync(project);
+        }
+    }
+
     public async Task ShutdownAsync()
     {
         StatusText = "正在停止运行中的命令...";
@@ -451,6 +784,8 @@ public sealed class MainViewModel : ObservableObject
             query = SelectedGroup.Kind switch
             {
                 GroupFilterKind.Ungrouped => query.Where(item => item.GroupId is null),
+                GroupFilterKind.Recent => query.Where(item => item.LastUsedAt.HasValue),
+                GroupFilterKind.Favorites => query.Where(item => item.IsFavorite),
                 GroupFilterKind.Group when SelectedGroup.GroupId.HasValue =>
                     query.Where(item => item.GroupId.HasValue &&
                         GetDescendantGroupIds(SelectedGroup.GroupId.Value)
@@ -471,7 +806,18 @@ public sealed class MainViewModel : ObservableObject
                     command.CommandText.Contains(search, StringComparison.OrdinalIgnoreCase)));
         }
 
-        var result = query.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        var result = SelectedGroup?.Kind switch
+        {
+            GroupFilterKind.Recent => query
+                .OrderByDescending(item => item.LastUsedAt)
+                .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList(),
+            _ => query
+                .OrderByDescending(item => item.IsFavorite)
+                .ThenBy(item => item.SortOrder)
+                .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList()
+        };
         Projects.Clear();
         foreach (var project in result)
         {
@@ -488,7 +834,9 @@ public sealed class MainViewModel : ObservableObject
         Commands.Clear();
         if (SelectedProject is not null)
         {
-            foreach (var command in SelectedProject.Commands)
+            foreach (var command in SelectedProject.Commands
+                         .OrderBy(item => item.SortOrder)
+                         .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
             {
                 Commands.Add(new CommandRuntimeViewModel(
                     command,
@@ -498,6 +846,17 @@ public sealed class MainViewModel : ObservableObject
         }
 
         SelectedCommand = Commands.FirstOrDefault(item => item.Command.Id == selectedCommandId) ?? Commands.FirstOrDefault();
+    }
+
+    private void RefreshRunPlans()
+    {
+        RunPlans.Clear();
+        foreach (var runPlan in _data.RunPlans
+                     .OrderBy(item => item.SortOrder)
+                     .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            RunPlans.Add(runPlan);
+        }
     }
 
     private async Task SaveAndRefreshAsync(GroupFilterKind kind, Guid? groupId)
@@ -512,6 +871,8 @@ public sealed class MainViewModel : ObservableObject
         GroupItems.Clear();
         GroupItems.Add(new GroupTreeItem("全部项目", GroupFilterKind.All, null));
         GroupItems.Add(new GroupTreeItem("未分组", GroupFilterKind.Ungrouped, null));
+        GroupItems.Add(new GroupTreeItem("最近使用", GroupFilterKind.Recent, null));
+        GroupItems.Add(new GroupTreeItem("收藏项目", GroupFilterKind.Favorites, null));
 
         var roots = _data.Groups
             .Where(item => item.ParentId is null)
@@ -652,6 +1013,27 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    private void NormalizeSortOrders()
+    {
+        foreach (var groupSet in _data.Groups.GroupBy(item => item.ParentId))
+        {
+            AssignSortOrders(OrderByStoredOrder(groupSet));
+        }
+
+        AssignSortOrders(OrderByStoredOrder(_data.Projects));
+
+        foreach (var project in _data.Projects)
+        {
+            AssignSortOrders(OrderByStoredOrder(project.Commands));
+        }
+
+        AssignSortOrders(OrderByStoredOrder(_data.RunPlans));
+        foreach (var runPlan in _data.RunPlans)
+        {
+            AssignSortOrders(OrderByStoredOrder(runPlan.Commands));
+        }
+    }
+
     private void ValidateGroupName(string name, Guid? currentGroupId)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -702,6 +1084,13 @@ public sealed class MainViewModel : ObservableObject
             throw new InvalidOperationException("所选分组不存在。");
         }
 
+        if (!string.IsNullOrWhiteSpace(project.HealthCheckUrl) &&
+            (!Uri.TryCreate(project.HealthCheckUrl, UriKind.Absolute, out var healthUri) ||
+             healthUri.Scheme is not ("http" or "https")))
+        {
+            throw new InvalidOperationException("健康检查 URL 必须是有效的 HTTP/HTTPS 地址。");
+        }
+
         if (_data.Projects.Any(item => item.Id != currentProjectId &&
             string.Equals(item.WorkingDirectory.TrimEnd('\\'), project.WorkingDirectory.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)))
         {
@@ -721,10 +1110,17 @@ public sealed class MainViewModel : ObservableObject
             .DefaultIfEmpty(-1)
             .Max() + 1;
 
+    private int NextProjectSortOrder() =>
+        _data.Projects
+            .Select(item => item.SortOrder)
+            .DefaultIfEmpty(-1)
+            .Max() + 1;
+
     private static void EnsureCommandIds(ManagedProject project)
     {
-        foreach (var command in project.Commands)
+        for (var index = 0; index < project.Commands.Count; index++)
         {
+            var command = project.Commands[index];
             if (command.Id == Guid.Empty)
             {
                 command.Id = Guid.NewGuid();
@@ -732,11 +1128,141 @@ public sealed class MainViewModel : ObservableObject
 
             command.Name = command.Name.Trim();
             command.CommandText = command.CommandText.Trim();
+            command.Shell = command.Shell is "PowerShell" ? "PowerShell" : "Cmd";
+            command.EnvironmentVariables = command.EnvironmentVariables.Trim();
+            command.SortOrder = index;
         }
 
         project.Name = project.Name.Trim();
         project.WorkingDirectory = Path.GetFullPath(project.WorkingDirectory.Trim());
     }
+
+    private static void MoveBeforeOrAfter<T>(List<T> items, T source, T target, bool insertAfter)
+    {
+        items.Remove(source);
+        var targetIndex = items.IndexOf(target);
+        if (targetIndex < 0)
+        {
+            items.Add(source);
+            return;
+        }
+
+        items.Insert(insertAfter ? targetIndex + 1 : targetIndex, source);
+    }
+
+    private static List<T> OrderByStoredOrder<T>(IEnumerable<T> items)
+        where T : class
+    {
+        return items
+            .Select((item, index) => new
+            {
+                Item = item,
+                Index = index,
+                SortOrder = item switch
+                {
+                    ProjectGroup group => group.SortOrder,
+                    ManagedProject project => project.SortOrder,
+                    ProjectCommand command => command.SortOrder,
+                    RunPlan runPlan => runPlan.SortOrder,
+                    RunPlanCommand runPlanCommand => runPlanCommand.SortOrder,
+                    _ => index
+                }
+            })
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Index)
+            .Select(item => item.Item)
+            .ToList();
+    }
+
+    private static void AssignSortOrders(IReadOnlyList<ProjectGroup> groups)
+    {
+        for (var index = 0; index < groups.Count; index++)
+        {
+            groups[index].SortOrder = index;
+        }
+    }
+
+    private static void AssignSortOrders(IReadOnlyList<ManagedProject> projects)
+    {
+        for (var index = 0; index < projects.Count; index++)
+        {
+            projects[index].SortOrder = index;
+        }
+    }
+
+    private static void AssignSortOrders(IReadOnlyList<ProjectCommand> commands)
+    {
+        for (var index = 0; index < commands.Count; index++)
+        {
+            commands[index].SortOrder = index;
+        }
+    }
+
+    private static void AssignSortOrders(IReadOnlyList<RunPlan> runPlans)
+    {
+        for (var index = 0; index < runPlans.Count; index++)
+        {
+            runPlans[index].SortOrder = index;
+        }
+    }
+
+    private static void AssignSortOrders(IReadOnlyList<RunPlanCommand> commands)
+    {
+        for (var index = 0; index < commands.Count; index++)
+        {
+            commands[index].SortOrder = index;
+        }
+    }
+
+    private void ValidateRunPlans(IReadOnlyList<RunPlan> runPlans)
+    {
+        var commandIdsByProjectId = _data.Projects.ToDictionary(
+            project => project.Id,
+            project => project.Commands.Select(command => command.Id).ToHashSet());
+        foreach (var runPlan in runPlans)
+        {
+            if (string.IsNullOrWhiteSpace(runPlan.Name))
+            {
+                throw new InvalidOperationException("运行方案名称不能为空。");
+            }
+
+            runPlan.Name = runPlan.Name.Trim();
+            var uniqueCommandIds = new HashSet<Guid>();
+            foreach (var commandRef in runPlan.Commands)
+            {
+                if (!commandIdsByProjectId.TryGetValue(commandRef.ProjectId, out var commandIds) ||
+                    !commandIds.Contains(commandRef.CommandId))
+                {
+                    throw new InvalidOperationException($"运行方案“{runPlan.Name}”包含已不存在的命令。");
+                }
+
+                if (!uniqueCommandIds.Add(commandRef.CommandId))
+                {
+                    throw new InvalidOperationException($"运行方案“{runPlan.Name}”中存在重复命令。");
+                }
+
+                commandRef.DelaySeconds = Math.Clamp(commandRef.DelaySeconds, 0, 300);
+            }
+        }
+    }
+
+    private static RunPlan CloneRunPlan(RunPlan runPlan) => new()
+    {
+        Id = runPlan.Id == Guid.Empty ? Guid.NewGuid() : runPlan.Id,
+        Name = runPlan.Name,
+        StopCommandsOutsidePlan = runPlan.StopCommandsOutsidePlan,
+        SortOrder = runPlan.SortOrder,
+        Commands = runPlan.Commands
+            .OrderBy(item => item.SortOrder)
+            .Select(item => new RunPlanCommand
+            {
+                ProjectId = item.ProjectId,
+                CommandId = item.CommandId,
+                DelaySeconds = item.DelaySeconds,
+                SortOrder = item.SortOrder
+            })
+            .ToList()
+    };
 
     private void ProcessManagerOnOutputReceived(object? sender, ProcessOutputEventArgs eventArgs)
     {
@@ -938,9 +1464,27 @@ public sealed class MainViewModel : ObservableObject
         var text = SelectedCommand is not null && _logs.TryGetValue(SelectedCommand.Command.Id, out var log)
             ? log.GetTailLines(_data.Settings.LogVisibleLineCount)
             : string.Empty;
+        text = FilterLogText(text);
         _displayedLog = CreateDisplayedLogBuffer();
         _displayedLog.Append(text);
         ReplaceDisplayedLog(_displayedLog.ToString());
+    }
+
+    private string FilterLogText(string text)
+    {
+        var search = LogSearchText.Trim();
+        if (search.Length == 0 && !LogErrorsOnly)
+        {
+            return text;
+        }
+
+        return string.Join(
+            Environment.NewLine,
+            text.ReplaceLineEndings("\n")
+                .Split('\n')
+                .Where(line =>
+                    (!LogErrorsOnly || line.Contains("[错误]", StringComparison.OrdinalIgnoreCase)) &&
+                    (search.Length == 0 || line.Contains(search, StringComparison.OrdinalIgnoreCase))));
     }
 
     private void ReplaceDisplayedLog(string text) =>
@@ -959,10 +1503,25 @@ public sealed class MainViewModel : ObservableObject
 
     private void UpdateRunningCount()
     {
+        var groupNamesById = _data.Groups.ToDictionary(item => item.Id, item => item.Name);
+        var runtimeSnapshotsByCommandId = _processManager.GetRuntimeSnapshots()
+            .ToDictionary(item => item.CommandId);
         var runningCommands = _data.Projects
             .SelectMany(project => project.Commands
                 .Where(command => _processManager.IsRunning(command.Id))
-                .Select(command => new RunningCommandSummary(project.Name, command.Name, command.CommandText)))
+                .Select(command =>
+                {
+                    runtimeSnapshotsByCommandId.TryGetValue(command.Id, out var snapshot);
+                    return new RunningCommandSummary(
+                        project.GroupId.HasValue && groupNamesById.TryGetValue(project.GroupId.Value, out var groupName)
+                            ? groupName
+                            : string.Empty,
+                        project.Name,
+                        command.Name,
+                        command.CommandText,
+                        snapshot?.StartedAt,
+                        snapshot?.WorkingSetBytes ?? 0);
+                }))
             .OrderBy(item => item.ProjectName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(item => item.CommandName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
@@ -977,7 +1536,70 @@ public sealed class MainViewModel : ObservableObject
     }
 }
 
-public sealed record RunningCommandSummary(string ProjectName, string CommandName, string CommandText);
+public sealed record RunningCommandSummary(
+    string GroupName,
+    string ProjectName,
+    string CommandName,
+    string CommandText,
+    DateTime? StartedAt,
+    long WorkingSetBytes)
+{
+    public string ProjectDisplayName => string.IsNullOrWhiteSpace(GroupName)
+        ? ProjectName
+        : $"{GroupName}-{ProjectName}";
+
+    public string DurationDisplay => StartedAt.HasValue
+        ? FormatDuration(DateTime.Now - StartedAt.Value)
+        : "未知时长";
+
+    public string MemoryDisplay => WorkingSetBytes > 0
+        ? $"{WorkingSetBytes / 1024d / 1024d:0.#} MB"
+        : "内存未知";
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+        {
+            return $"{(int)duration.TotalHours:0}h {duration.Minutes:00}m";
+        }
+
+        return $"{duration.Minutes:0}m {duration.Seconds:00}s";
+    }
+}
+
+public sealed record HealthCheckResult(
+    bool IsReachable,
+    int? StatusCode,
+    bool IsHealthy,
+    TimeSpan Elapsed,
+    string Detail);
+
+public sealed class RunPlanCommandChoice
+{
+    public RunPlanCommandChoice(
+        Guid projectId,
+        Guid commandId,
+        string projectDisplayName,
+        string commandName,
+        bool isSelected,
+        int delaySeconds)
+    {
+        ProjectId = projectId;
+        CommandId = commandId;
+        ProjectDisplayName = projectDisplayName;
+        CommandName = commandName;
+        IsSelected = isSelected;
+        DelaySeconds = delaySeconds;
+    }
+
+    public Guid ProjectId { get; }
+    public Guid CommandId { get; }
+    public string ProjectDisplayName { get; }
+    public string CommandName { get; }
+    public bool IsSelected { get; set; }
+    public int DelaySeconds { get; set; }
+    public string DisplayName => $"{ProjectDisplayName} / {CommandName}";
+}
 
 public sealed record LogDisplayUpdateEventArgs(
     string? ReplacementText,
@@ -990,6 +1612,8 @@ public enum GroupFilterKind
 {
     All,
     Ungrouped,
+    Recent,
+    Favorites,
     Group
 }
 

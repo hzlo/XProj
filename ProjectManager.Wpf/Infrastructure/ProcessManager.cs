@@ -40,17 +40,23 @@ public sealed class ProcessManager : IAsyncDisposable
             throw new InvalidOperationException("该命令已经在运行。");
         }
 
-        var shellPath = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+        var shell = command.Shell is "PowerShell" ? "PowerShell" : "Cmd";
+        var shellPath = shell == "PowerShell"
+            ? "powershell.exe"
+            : Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
         var startInfo = new ProcessStartInfo
         {
             FileName = shellPath,
-            Arguments = $"/D /S /C \"{command.CommandText}\"",
+            Arguments = shell == "PowerShell"
+                ? $"-NoLogo -NoProfile -ExecutionPolicy Bypass -Command \"{command.CommandText}\""
+                : $"/D /S /C \"{command.CommandText}\"",
             WorkingDirectory = project.WorkingDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true
         };
+        ApplyEnvironmentVariables(startInfo, command.EnvironmentVariables);
 
         var process = new Process
         {
@@ -60,6 +66,7 @@ public sealed class ProcessManager : IAsyncDisposable
             project.Id,
             command.Id,
             process,
+            DateTime.Now,
             new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously));
 
         if (!_runningProcesses.TryAdd(command.Id, runningProcess))
@@ -139,6 +146,33 @@ public sealed class ProcessManager : IAsyncDisposable
         await Task.WhenAll(_runningProcesses.Keys.ToArray().Select(StopAsync));
     }
 
+    public IReadOnlyList<Guid> RunningCommandIds => _runningProcesses.Keys.ToArray();
+
+    public IReadOnlyList<ProcessRuntimeSnapshot> GetRuntimeSnapshots()
+    {
+        return _runningProcesses.Values.Select(item =>
+        {
+            var workingSetBytes = 0L;
+            try
+            {
+                item.Process.Refresh();
+                if (!item.Process.HasExited)
+                {
+                    workingSetBytes = item.Process.WorkingSet64;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            return new ProcessRuntimeSnapshot(
+                item.ProjectId,
+                item.CommandId,
+                item.StartedAt,
+                workingSetBytes);
+        }).ToList();
+    }
+
     public async ValueTask DisposeAsync()
     {
         await StopAllAsync();
@@ -151,6 +185,36 @@ public sealed class ProcessManager : IAsyncDisposable
             CultureInfo.CurrentCulture.TextInfo.OEMCodePage,
             EncoderFallback.ExceptionFallback,
             DecoderFallback.ReplacementFallback);
+    }
+
+    private static void ApplyEnvironmentVariables(ProcessStartInfo startInfo, string environmentVariables)
+    {
+        if (string.IsNullOrWhiteSpace(environmentVariables))
+        {
+            return;
+        }
+
+        foreach (var line in environmentVariables.ReplaceLineEndings("\n").Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith('#'))
+            {
+                continue;
+            }
+
+            var separatorIndex = trimmed.IndexOf('=');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            var key = trimmed[..separatorIndex].Trim();
+            var value = trimmed[(separatorIndex + 1)..].Trim();
+            if (key.Length > 0)
+            {
+                startInfo.Environment[key] = value;
+            }
+        }
     }
 
     private async Task ReadOutputAsync(Stream stream, Guid commandId, bool isError)
@@ -262,9 +326,11 @@ public sealed class ProcessManager : IAsyncDisposable
         Guid ProjectId,
         Guid CommandId,
         Process Process,
+        DateTime StartedAt,
         TaskCompletionSource<int> Completion);
 
 }
 
 public sealed record ProcessOutputEventArgs(Guid CommandId, string Text, bool IsError);
 public sealed record ProcessExitedEventArgs(Guid CommandId, int ExitCode);
+public sealed record ProcessRuntimeSnapshot(Guid ProjectId, Guid CommandId, DateTime StartedAt, long WorkingSetBytes);

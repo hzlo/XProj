@@ -6,6 +6,7 @@ public sealed class AppData
     public AppSettings Settings { get; set; } = new();
     public List<ProjectGroup> Groups { get; set; } = new();
     public List<ManagedProject> Projects { get; set; } = new();
+    public List<RunPlan> RunPlans { get; set; } = new();
 }
 
 public sealed class AppSettings
@@ -48,6 +49,10 @@ public sealed class ManagedProject
     public string Name { get; set; } = string.Empty;
     public string WorkingDirectory { get; set; } = string.Empty;
     public Guid? GroupId { get; set; }
+    public bool IsFavorite { get; set; }
+    public DateTime? LastUsedAt { get; set; }
+    public string HealthCheckUrl { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
     public List<ProjectCommand> Commands { get; set; } = new();
 }
 
@@ -56,4 +61,24 @@ public sealed class ProjectCommand
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
     public string CommandText { get; set; } = string.Empty;
+    public string Shell { get; set; } = "Cmd";
+    public string EnvironmentVariables { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+}
+
+public sealed class RunPlan
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = string.Empty;
+    public bool StopCommandsOutsidePlan { get; set; } = true;
+    public int SortOrder { get; set; }
+    public List<RunPlanCommand> Commands { get; set; } = new();
+}
+
+public sealed class RunPlanCommand
+{
+    public Guid ProjectId { get; set; }
+    public Guid CommandId { get; set; }
+    public int DelaySeconds { get; set; }
+    public int SortOrder { get; set; }
 }

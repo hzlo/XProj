@@ -9,9 +9,10 @@
         MinWidth="680"
         MinHeight="620"
         WindowStyle="None"
+        AllowsTransparency="True"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="{DynamicResource WindowBrush}">
+        Background="Transparent">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="18" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -46,7 +47,7 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="{DynamicResource AppBackdropBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="18">
+    <Border Background="{DynamicResource AppBackdropBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="18" ClipToBounds="True">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="54" />

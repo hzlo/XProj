@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 using ProjectManager.Wpf.Infrastructure;
 using ProjectManager.Wpf.Models;
@@ -21,12 +23,15 @@ public partial class MainWindow : Window
     private readonly Forms.ContextMenuStrip _trayMenu;
     private readonly Forms.NotifyIcon _trayIcon;
     private readonly DispatcherTimer _runningPopoverCloseTimer;
+    private readonly DispatcherTimer _runningSummaryRefreshTimer;
     private bool _shutdownCompleted;
     private bool _checkingForUpdates;
     private bool _isExiting;
     private bool _updateRestartConfirmed;
     private bool _logDisplayDirty;
     private bool _trayHintShown;
+    private Point _dragStartPoint;
+    private object? _dragSourceItem;
 
     public MainWindow()
     {
@@ -44,6 +49,12 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(180)
         };
         _runningPopoverCloseTimer.Tick += (_, _) => CloseRunningPopoverIfPointerLeft();
+        _runningSummaryRefreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _runningSummaryRefreshTimer.Tick += (_, _) => _viewModel.RefreshRunningSummaries();
+        _runningSummaryRefreshTimer.Start();
 
         _trayMenu = new Forms.ContextMenuStrip();
         var showItem = new Forms.ToolStripMenuItem("打开 XProj");
@@ -161,6 +172,88 @@ public partial class MainWindow : Window
         }
     }
 
+    private void SortableItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragStartPoint = e.GetPosition(null);
+        _dragSourceItem = ResolveSortableDataContext(sender, e.OriginalSource as DependencyObject);
+    }
+
+    private void SortableItem_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragSourceItem is null || e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var currentPosition = e.GetPosition(null);
+        if (Math.Abs(currentPosition.X - _dragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(currentPosition.Y - _dragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        if (!IsSortableSource(sender, _dragSourceItem))
+        {
+            return;
+        }
+
+        DragDrop.DoDragDrop((DependencyObject)sender, _dragSourceItem, DragDropEffects.Move);
+        _dragSourceItem = null;
+        e.Handled = true;
+    }
+
+    private async void SortableItem_Drop(object sender, DragEventArgs e)
+    {
+        var target = ResolveSortableDataContext(sender, e.OriginalSource as DependencyObject);
+        if (_dragSourceItem is null || target is null || ReferenceEquals(_dragSourceItem, target))
+        {
+            return;
+        }
+
+        try
+        {
+            switch (sender)
+            {
+                case TreeView when _dragSourceItem is GroupTreeItem sourceGroup &&
+                    target is GroupTreeItem targetGroup &&
+                    sourceGroup.Kind == GroupFilterKind.Group &&
+                    targetGroup.Kind == GroupFilterKind.Group &&
+                    sourceGroup.GroupId.HasValue &&
+                    targetGroup.GroupId.HasValue:
+                    await _viewModel.ReorderGroupAsync(
+                        sourceGroup.GroupId.Value,
+                        targetGroup.GroupId.Value,
+                        ShouldInsertAfter<TreeViewItem>(e));
+                    break;
+
+                case ListBox when _dragSourceItem is ManagedProject sourceProject &&
+                    target is ManagedProject targetProject:
+                    await _viewModel.ReorderProjectAsync(
+                        sourceProject.Id,
+                        targetProject.Id,
+                        ShouldInsertAfter<ListBoxItem>(e));
+                    break;
+
+                case ItemsControl when _dragSourceItem is CommandRuntimeViewModel sourceCommand &&
+                    target is CommandRuntimeViewModel targetCommand:
+                    await _viewModel.ReorderCommandAsync(
+                        sourceCommand.Command.Id,
+                        targetCommand.Command.Id,
+                        ShouldInsertAfter<Button>(e, horizontal: true));
+                    break;
+            }
+        }
+        catch (Exception exception)
+        {
+            ShowError("排序失败", exception);
+        }
+        finally
+        {
+            _dragSourceItem = null;
+            e.Handled = true;
+        }
+    }
+
     private async void AddGroup_Click(object sender, RoutedEventArgs e)
     {
         var defaultParentId = _viewModel.SelectedGroup?.Kind == GroupFilterKind.Group
@@ -253,6 +346,39 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void DiscoverProjects_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = "选择要扫描的项目根目录",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = false
+        };
+        if (dialog.ShowDialog() != Forms.DialogResult.OK)
+        {
+            return;
+        }
+
+        await ExecuteAsync(async () =>
+        {
+            var projects = await _viewModel.DiscoverProjectsAsync(dialog.SelectedPath);
+            if (projects.Count == 0)
+            {
+                AppDialog.Show(this, "扫描项目", "没有发现新的可管理项目。");
+                return;
+            }
+
+            var discoveryDialog = new ProjectDiscoveryDialog(dialog.SelectedPath, projects)
+            {
+                Owner = this
+            };
+            if (discoveryDialog.ShowDialog() == true)
+            {
+                await _viewModel.AddDiscoveredProjectsAsync(discoveryDialog.Result);
+            }
+        });
+    }
+
     private async void EditProject_Click(object sender, RoutedEventArgs e)
     {
         var project = _viewModel.SelectedProject;
@@ -287,6 +413,36 @@ public partial class MainWindow : Window
         {
             await ExecuteAsync(() => _viewModel.DeleteProjectAsync(project.Id));
         }
+    }
+
+    private async void ToggleFavorite_Click(object sender, RoutedEventArgs e)
+    {
+        var project = (sender as FrameworkElement)?.DataContext as ManagedProject ?? _viewModel.SelectedProject;
+        if (project is null)
+        {
+            return;
+        }
+
+        await ExecuteAsync(() => _viewModel.ToggleProjectFavoriteAsync(project.Id));
+    }
+
+    private void OpenProjectUrl_Click(object sender, RoutedEventArgs e) =>
+        Execute(() => _viewModel.OpenSelectedProjectUrl());
+
+    private async void CheckProjectHealth_Click(object sender, RoutedEventArgs e)
+    {
+        await ExecuteAsync(async () =>
+        {
+            var result = await _viewModel.CheckSelectedProjectHealthAsync();
+            var message = result.IsReachable
+                ? $"HTTP {result.StatusCode} · {result.Elapsed.TotalMilliseconds:0} ms\n{result.Detail}"
+                : $"无法连接 · {result.Elapsed.TotalMilliseconds:0} ms\n{result.Detail}";
+            AppDialog.Show(
+                this,
+                result.IsHealthy ? "健康检查通过" : "健康检查失败",
+                message,
+                result.IsHealthy ? AppDialogKind.Information : AppDialogKind.Error);
+        });
     }
 
     private async void CommandButton_Click(object sender, RoutedEventArgs e)
@@ -357,7 +513,9 @@ public partial class MainWindow : Window
             await ExecuteAsync(() => _viewModel.UpdateCommandAsync(
                 command.Command.Id,
                 dialog.CommandName,
-                dialog.CommandText));
+                dialog.CommandText,
+                dialog.Shell,
+                dialog.EnvironmentVariables));
         }
     }
 
@@ -379,6 +537,25 @@ public partial class MainWindow : Window
     }
 
     private void ClearLog_Click(object sender, RoutedEventArgs e) => _viewModel.ClearSelectedLog();
+
+    private async void ExportLog_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedCommand is null)
+        {
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = "日志文件 (*.log)|*.log|文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*",
+            FileName = $"{_viewModel.SelectedCommand.Command.Name}.log",
+            AddExtension = true
+        };
+        if (dialog.ShowDialog(this) == true)
+        {
+            await ExecuteAsync(() => _viewModel.ExportSelectedLogAsync(dialog.FileName));
+        }
+    }
 
     private async void Settings_Click(object sender, RoutedEventArgs e)
     {
@@ -404,6 +581,29 @@ public partial class MainWindow : Window
                 ThemeManager.Apply(dialog.Result);
             });
         }
+    }
+
+    private async void RunPlans_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new RunPlansDialog(
+            _viewModel.GetRunPlansSnapshot(),
+            _viewModel.GetRunPlanCommandChoices)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true || dialog.Result is null)
+        {
+            return;
+        }
+
+        await ExecuteAsync(async () =>
+        {
+            await _viewModel.ReplaceRunPlansAsync(dialog.Result);
+            if (dialog.RunPlanIdToStart.HasValue)
+            {
+                await _viewModel.RunPlanAsync(dialog.RunPlanIdToStart.Value);
+            }
+        });
     }
 
     private void MinimizeWindow_Click(object sender, RoutedEventArgs e) =>
@@ -442,6 +642,100 @@ public partial class MainWindow : Window
         {
             _viewModel.SelectedCommand = command;
         }
+    }
+
+    private static object? ResolveSortableDataContext(object sender, DependencyObject? source)
+    {
+        return sender switch
+        {
+            TreeView => FindDataContext<GroupTreeItem>(source),
+            ListBox => FindDataContext<ManagedProject>(source),
+            ItemsControl => FindDataContext<CommandRuntimeViewModel>(source),
+            _ => null
+        };
+    }
+
+    private static bool IsSortableSource(object sender, object sourceItem)
+    {
+        return sender switch
+        {
+            TreeView => sourceItem is GroupTreeItem { Kind: GroupFilterKind.Group },
+            ListBox => sourceItem is ManagedProject,
+            ItemsControl => sourceItem is CommandRuntimeViewModel,
+            _ => false
+        };
+    }
+
+    private static T? FindDataContext<T>(DependencyObject? source)
+        where T : class
+    {
+        while (source is not null)
+        {
+            if (source is FrameworkElement { DataContext: T dataContext })
+            {
+                return dataContext;
+            }
+
+            if (source is FrameworkContentElement { DataContext: T contentDataContext })
+            {
+                return contentDataContext;
+            }
+
+            source = GetParentObject(source);
+        }
+
+        return null;
+    }
+
+    private static bool ShouldInsertAfter<TContainer>(DragEventArgs e, bool horizontal = false)
+        where TContainer : FrameworkElement
+    {
+        var container = FindAncestor<TContainer>(e.OriginalSource as DependencyObject);
+        if (container is null)
+        {
+            return false;
+        }
+
+        var position = e.GetPosition(container);
+        return horizontal
+            ? position.X > container.ActualWidth / 2
+            : position.Y > container.ActualHeight / 2;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? source)
+        where T : DependencyObject
+    {
+        while (source is not null)
+        {
+            if (source is T ancestor)
+            {
+                return ancestor;
+            }
+
+            source = GetParentObject(source);
+        }
+
+        return null;
+    }
+
+    private static DependencyObject? GetParentObject(DependencyObject source)
+    {
+        if (source is Visual or Visual3D)
+        {
+            return VisualTreeHelper.GetParent(source);
+        }
+
+        if (source is ContentElement contentElement)
+        {
+            return ContentOperations.GetParent(contentElement);
+        }
+
+        if (source is FrameworkContentElement frameworkContentElement)
+        {
+            return frameworkContentElement.Parent;
+        }
+
+        return null;
     }
 
     private void Window_StateChanged(object sender, EventArgs e)

@@ -9,9 +9,10 @@
         MinWidth="720"
         MinHeight="660"
         WindowStyle="None"
+        AllowsTransparency="True"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="{DynamicResource WindowBrush}">
+        Background="Transparent">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -49,7 +50,7 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="{DynamicResource AppBackdropBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16">
+    <Border Background="{DynamicResource AppBackdropBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16" ClipToBounds="True">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="52" />
@@ -117,6 +118,8 @@
                                 <mi:MaterialIcon Kind="FolderOpenOutline" Width="17" Height="17" />
                             </Button>
                         </Grid>
+                        <TextBlock Text="健康检查 URL" Style="{StaticResource FieldLabel}" Margin="0,14,0,0" />
+                        <TextBox x:Name="HealthUrlTextBox" Tag="例如：http://localhost:5000/health" />
                     </StackPanel>
 
                     <Grid Grid.Row="2" Margin="1,20,0,9">

@@ -27,6 +27,17 @@ internal static class WindowBackdrop
         SetAttribute(handle, DwmUseImmersiveDarkMode, enabled);
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
         {
+            if (window.AllowsTransparency)
+            {
+                // Transparent WPF windows already provide their own rounded clip.
+                // DWM rounding/backdrop would add a second edge and produce halos.
+                var noRound = 1;
+                var noBackdrop = 1;
+                SetAttribute(handle, DwmWindowCornerPreference, noRound);
+                SetAttribute(handle, DwmSystemBackdropType, noBackdrop);
+                return;
+            }
+
             var rounded = 2;
             var mica = 2;
             SetAttribute(handle, DwmWindowCornerPreference, rounded);

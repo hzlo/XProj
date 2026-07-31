@@ -25,16 +25,22 @@ public partial class ProjectDialog : Window
 
         NameTextBox.Text = project?.Name ?? string.Empty;
         PathTextBox.Text = project?.WorkingDirectory ?? string.Empty;
+        HealthUrlTextBox.Text = project?.HealthCheckUrl ?? string.Empty;
         var selectedGroupId = project?.GroupId ?? defaultGroupId;
         GroupComboBox.SelectedItem = _groupChoices.FirstOrDefault(item => item.Id == selectedGroupId) ?? _groupChoices.First();
 
         Commands = new ObservableCollection<ProjectCommandDraft>(
-            project?.Commands.Select(command => new ProjectCommandDraft
-            {
-                Id = command.Id,
-                Name = command.Name,
-                CommandText = command.CommandText
-            }) ?? Array.Empty<ProjectCommandDraft>());
+            project?.Commands
+                .OrderBy(command => command.SortOrder)
+                .Select(command => new ProjectCommandDraft
+                {
+                    Id = command.Id,
+                    Name = command.Name,
+                    CommandText = command.CommandText,
+                    Shell = command.Shell,
+                    EnvironmentVariables = command.EnvironmentVariables,
+                    SortOrder = command.SortOrder
+                }) ?? Array.Empty<ProjectCommandDraft>());
         DataContext = this;
 
         Loaded += (_, _) => NameTextBox.Focus();
@@ -105,11 +111,15 @@ public partial class ProjectDialog : Window
             Name = NameTextBox.Text.Trim(),
             WorkingDirectory = Path.GetFullPath(PathTextBox.Text.Trim()),
             GroupId = (GroupComboBox.SelectedItem as GroupChoice)?.Id,
-            Commands = Commands.Select(item => new ProjectCommand
+            HealthCheckUrl = HealthUrlTextBox.Text.Trim(),
+            Commands = Commands.Select((item, index) => new ProjectCommand
             {
                 Id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
                 Name = item.Name.Trim(),
-                CommandText = item.CommandText.Trim()
+                CommandText = item.CommandText.Trim(),
+                Shell = item.Shell,
+                EnvironmentVariables = item.EnvironmentVariables,
+                SortOrder = index
             }).ToList()
         };
         DialogResult = true;
@@ -127,4 +137,7 @@ public sealed class ProjectCommandDraft
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
     public string CommandText { get; set; } = string.Empty;
+    public string Shell { get; set; } = "Cmd";
+    public string EnvironmentVariables { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
 }

@@ -51,6 +51,7 @@ public sealed class JsonDataStore
         try
         {
             Directory.CreateDirectory(DataDirectory);
+            CreateDailyBackup();
             var temporaryPath = DataFilePath + ".tmp";
             await using (var stream = File.Create(temporaryPath))
             {
@@ -62,6 +63,30 @@ public sealed class JsonDataStore
         finally
         {
             _saveLock.Release();
+        }
+    }
+
+    private void CreateDailyBackup()
+    {
+        if (!File.Exists(DataFilePath))
+        {
+            return;
+        }
+
+        var backupPath = Path.Combine(DataDirectory, $"data.backup-{DateTime.Now:yyyyMMdd}.json");
+        if (!File.Exists(backupPath))
+        {
+            File.Copy(DataFilePath, backupPath);
+        }
+
+        var backupFiles = Directory
+            .EnumerateFiles(DataDirectory, "data.backup-*.json")
+            .OrderByDescending(path => path, StringComparer.OrdinalIgnoreCase)
+            .Skip(7)
+            .ToArray();
+        foreach (var backupFile in backupFiles)
+        {
+            File.Delete(backupFile);
         }
     }
 
@@ -124,9 +149,29 @@ public sealed class JsonDataStore
 
         data.Groups ??= new List<ProjectGroup>();
         data.Projects ??= new List<ManagedProject>();
+        data.RunPlans ??= new List<RunPlan>();
         foreach (var project in data.Projects)
         {
             project.Commands ??= new List<ProjectCommand>();
+            project.HealthCheckUrl ??= string.Empty;
+            foreach (var command in project.Commands)
+            {
+                if (command.Shell is not ("Cmd" or "PowerShell"))
+                {
+                    command.Shell = "Cmd";
+                }
+
+                command.EnvironmentVariables ??= string.Empty;
+            }
+        }
+
+        foreach (var runPlan in data.RunPlans)
+        {
+            runPlan.Commands ??= new List<RunPlanCommand>();
+            if (string.IsNullOrWhiteSpace(runPlan.Name))
+            {
+                runPlan.Name = "运行方案";
+            }
         }
 
         return data;

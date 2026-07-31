@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using ProjectManager.Wpf.Models;
 
 namespace ProjectManager.Wpf.Views;
@@ -10,11 +11,15 @@ public partial class CommandDialog : Window
         InitializeComponent();
         NameTextBox.Text = command.Name;
         CommandTextBox.Text = command.CommandText;
+        EnvironmentTextBox.Text = command.EnvironmentVariables;
+        ShellComboBox.SelectedIndex = command.Shell == "PowerShell" ? 1 : 0;
         Loaded += (_, _) => NameTextBox.Focus();
     }
 
     public string CommandName { get; private set; } = string.Empty;
     public string CommandText { get; private set; } = string.Empty;
+    public string Shell { get; private set; } = "Cmd";
+    public string EnvironmentVariables { get; private set; } = string.Empty;
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -26,6 +31,10 @@ public partial class CommandDialog : Window
 
         CommandName = NameTextBox.Text.Trim();
         CommandText = CommandTextBox.Text.Trim();
+        Shell = (ShellComboBox.SelectedItem as ComboBoxItem)?.Tag as string == "PowerShell"
+            ? "PowerShell"
+            : "Cmd";
+        EnvironmentVariables = EnvironmentTextBox.Text.Trim();
         DialogResult = true;
     }
 }
