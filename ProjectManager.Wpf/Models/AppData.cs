@@ -11,7 +11,16 @@ public sealed class AppData
 
 public sealed class AppSettings
 {
+    public const string DefaultLightForegroundColor = "#1D1D1F";
+    public const string DefaultLightBackgroundColor = "#DCDDE1";
+    public const string DefaultDarkForegroundColor = "#C0C8E4";
+    public const string DefaultDarkBackgroundColor = "#0E0F12";
+
     public string Theme { get; set; } = "Dark";
+    public string LightForegroundColor { get; set; } = DefaultLightForegroundColor;
+    public string LightBackgroundColor { get; set; } = DefaultLightBackgroundColor;
+    public string DarkForegroundColor { get; set; } = DefaultDarkForegroundColor;
+    public string DarkBackgroundColor { get; set; } = DefaultDarkBackgroundColor;
     public string CloseBehavior { get; set; } = "MinimizeToTray";
     public string UiFontFamily { get; set; } = "Microsoft YaHei UI";
     public double UiFontSize { get; set; } = 13;
@@ -24,6 +33,10 @@ public sealed class AppSettings
     public AppSettings Clone() => new()
     {
         Theme = Theme,
+        LightForegroundColor = LightForegroundColor,
+        LightBackgroundColor = LightBackgroundColor,
+        DarkForegroundColor = DarkForegroundColor,
+        DarkBackgroundColor = DarkBackgroundColor,
         CloseBehavior = CloseBehavior,
         UiFontFamily = UiFontFamily,
         UiFontSize = UiFontSize,
@@ -51,7 +64,6 @@ public sealed class ManagedProject
     public Guid? GroupId { get; set; }
     public bool IsFavorite { get; set; }
     public DateTime? LastUsedAt { get; set; }
-    public string HealthCheckUrl { get; set; } = string.Empty;
     public int SortOrder { get; set; }
     public List<ProjectCommand> Commands { get; set; } = new();
 }

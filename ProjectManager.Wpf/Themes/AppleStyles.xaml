@@ -82,13 +82,13 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Surface" Property="Background" Value="{DynamicResource HoverBrush}" />
-                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Surface" Property="Background" Value="{DynamicResource PressedBrush}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Surface" Property="Opacity" Value="0.35" />
@@ -113,7 +113,6 @@
         <Setter Property="Background" Value="{DynamicResource InsetPanelBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Template">
@@ -130,13 +129,13 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Surface" Property="Background" Value="{DynamicResource PressedBrush}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Surface" Property="Opacity" Value="0.32" />
@@ -206,7 +205,7 @@
                         <Trigger Property="Text" Value=""><Setter TargetName="Placeholder" Property="Visibility" Value="Visible" /></Trigger>
                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="InputSurface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" /></Trigger>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                            <Setter TargetName="InputSurface" Property="BorderBrush" Value="{DynamicResource AccentStrongBrush}" />
+                            <Setter TargetName="InputSurface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                             <Setter TargetName="InputSurface" Property="Background" Value="{DynamicResource InputFocusedBrush}" />
                         </Trigger>
                         <Trigger Property="IsReadOnly" Value="True"><Setter TargetName="InputSurface" Property="Background" Value="{DynamicResource ReadOnlyBrush}" /></Trigger>
@@ -269,7 +268,7 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ComboSurface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" /></Trigger>
-                                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="ComboSurface" Property="BorderBrush" Value="{DynamicResource AccentStrongBrush}" /></Trigger>
+                                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="ComboSurface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" /></Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </ToggleButton.Template>

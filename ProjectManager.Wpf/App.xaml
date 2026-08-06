@@ -7,6 +7,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <FontFamily x:Key="UiFontFamily">Microsoft YaHei UI</FontFamily>
+            <FontFamily x:Key="LogFontFamily">Consolas</FontFamily>
             <sys:Double x:Key="UiFontSize">13</sys:Double>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Themes/AppleDark.xaml" />

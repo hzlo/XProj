@@ -55,20 +55,6 @@ public sealed class SystemLauncher
         }
     }
 
-    public void OpenUrl(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
-            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-        {
-            throw new InvalidOperationException("无法打开无效的 HTTP/HTTPS 地址。");
-        }
-
-        Process.Start(new ProcessStartInfo(uri.AbsoluteUri)
-        {
-            UseShellExecute = true
-        });
-    }
-
     private static void EnsureDirectory(string path)
     {
         if (!Directory.Exists(path))

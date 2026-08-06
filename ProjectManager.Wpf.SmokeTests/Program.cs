@@ -57,6 +57,32 @@ if (new AppSettings().LogVisibleLineCount != 300)
 {
     throw new InvalidOperationException("The default visible log line count must be 300.");
 }
+if (!ThemeManager.TryNormalizeColor("#aBc123", out var normalizedColor) || normalizedColor != "#ABC123" ||
+    ThemeManager.TryNormalizeColor("ABC123", out _) ||
+    !ThemeManager.HasReadableContrast("#1D1D1F", "#DCDDE1") ||
+    ThemeManager.HasReadableContrast("#777777", "#888888"))
+{
+    throw new InvalidOperationException("Theme color parsing or contrast validation failed.");
+}
+
+var environmentMarkerName = $"XPROJ_SMOKE_{Guid.NewGuid():N}";
+const string EnvironmentMarkerValue = "process-environment-value";
+Environment.SetEnvironmentVariable(environmentMarkerName, EnvironmentMarkerValue);
+try
+{
+    var refreshedStartInfo = new System.Diagnostics.ProcessStartInfo();
+    SystemEnvironment.Refresh(refreshedStartInfo);
+    if (refreshedStartInfo.Environment[environmentMarkerName] != EnvironmentMarkerValue ||
+        string.IsNullOrWhiteSpace(refreshedStartInfo.Environment["SystemRoot"]) ||
+        string.IsNullOrWhiteSpace(refreshedStartInfo.Environment["Path"]))
+    {
+        throw new InvalidOperationException("The refreshed Windows environment block is incomplete.");
+    }
+}
+finally
+{
+    Environment.SetEnvironmentVariable(environmentMarkerName, null);
+}
 
 var retainedStressLog = new RollingLogBuffer(500_000, 400_000);
 var displayedStressLog = new RollingLineBuffer(300, 76_800, 61_440);
@@ -153,6 +179,10 @@ var persistedData = new AppData
     Settings = new AppSettings
     {
         Theme = "Light",
+        LightForegroundColor = "#202124",
+        LightBackgroundColor = "#D8DADC",
+        DarkForegroundColor = "#C4CCEA",
+        DarkBackgroundColor = "#111318",
         CloseBehavior = "Exit",
         UiFontFamily = "Microsoft YaHei UI",
         UiFontSize = 15,
@@ -188,6 +218,10 @@ var loadedData = await dataStore.LoadAsync();
 if (loadedData.Groups.Count != 2 ||
     loadedData.Projects.Single().GroupId != childGroup.Id ||
     loadedData.Settings.Theme != "Light" ||
+    loadedData.Settings.LightForegroundColor != "#202124" ||
+    loadedData.Settings.LightBackgroundColor != "#D8DADC" ||
+    loadedData.Settings.DarkForegroundColor != "#C4CCEA" ||
+    loadedData.Settings.DarkBackgroundColor != "#111318" ||
     loadedData.Settings.CloseBehavior != "Exit" ||
     loadedData.Settings.UiFontFamily != "Microsoft YaHei UI" ||
     loadedData.Settings.UiFontSize != 15 ||
@@ -204,6 +238,8 @@ var exportPath = Path.Combine(persistenceDirectory, "exported-config.json");
 await dataStore.ExportAsync(loadedData, exportPath);
 var importedData = await dataStore.ImportAsync(exportPath);
 if (importedData.Settings.Theme != "Light" ||
+    importedData.Settings.LightForegroundColor != "#202124" ||
+    importedData.Settings.DarkBackgroundColor != "#111318" ||
     importedData.Settings.CloseBehavior != "Exit" ||
     importedData.Settings.UiFontFamily != "Microsoft YaHei UI" ||
     importedData.Settings.LogVisibleLineCount != 500 ||

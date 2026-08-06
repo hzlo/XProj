@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Windows;
@@ -33,7 +32,6 @@ public sealed class MainViewModel : ObservableObject
     private CommandRuntimeViewModel? _selectedCommand;
     private string _searchText = string.Empty;
     private string _logSearchText = string.Empty;
-    private bool _logErrorsOnly;
     private FontFamily _logFontFamily = new("Consolas");
     private double _logFontSize = 11;
     private FontWeight _logFontWeight = FontWeights.Normal;
@@ -134,18 +132,6 @@ public sealed class MainViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _logSearchText, value))
-            {
-                RefreshLogText();
-            }
-        }
-    }
-
-    public bool LogErrorsOnly
-    {
-        get => _logErrorsOnly;
-        set
-        {
-            if (SetProperty(ref _logErrorsOnly, value))
             {
                 RefreshLogText();
             }
@@ -663,52 +649,6 @@ public sealed class MainViewModel : ObservableObject
         _systemLauncher.OpenInEditor(project.WorkingDirectory);
     }
 
-    public void OpenSelectedProjectUrl()
-    {
-        var project = SelectedProject ?? throw new InvalidOperationException("请先选择项目。");
-        if (string.IsNullOrWhiteSpace(project.HealthCheckUrl))
-        {
-            throw new InvalidOperationException("当前项目还没有配置 URL。");
-        }
-
-        _systemLauncher.OpenUrl(project.HealthCheckUrl);
-    }
-
-    public async Task<HealthCheckResult> CheckSelectedProjectHealthAsync()
-    {
-        var project = SelectedProject ?? throw new InvalidOperationException("请先选择项目。");
-        if (!Uri.TryCreate(project.HealthCheckUrl, UriKind.Absolute, out var uri) ||
-            uri.Scheme is not ("http" or "https"))
-        {
-            throw new InvalidOperationException("请先为项目配置有效的 HTTP/HTTPS URL。");
-        }
-
-        using var client = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(5)
-        };
-        var startedAt = DateTime.UtcNow;
-        try
-        {
-            using var response = await client.GetAsync(uri);
-            return new HealthCheckResult(
-                true,
-                (int)response.StatusCode,
-                response.IsSuccessStatusCode,
-                DateTime.UtcNow - startedAt,
-                response.ReasonPhrase ?? string.Empty);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
-        {
-            return new HealthCheckResult(
-                false,
-                null,
-                false,
-                DateTime.UtcNow - startedAt,
-                exception.Message);
-        }
-    }
-
     public async Task ToggleProjectFavoriteAsync(Guid projectId)
     {
         var project = _data.Projects.SingleOrDefault(item => item.Id == projectId)
@@ -717,30 +657,6 @@ public sealed class MainViewModel : ObservableObject
         await _dataStore.SaveAsync(_data);
         RefreshProjects(project.Id);
         StatusText = project.IsFavorite ? $"已收藏项目：{project.Name}" : $"已取消收藏：{project.Name}";
-    }
-
-    public async Task ExportSelectedLogAsync(string filePath)
-    {
-        if (SelectedCommand is null)
-        {
-            throw new InvalidOperationException("请先选择一个命令。");
-        }
-
-        var text = GetSelectedLogText();
-        await File.WriteAllTextAsync(filePath, text, Encoding.UTF8);
-        StatusText = "日志已导出";
-    }
-
-    public string GetSelectedLogText()
-    {
-        if (SelectedCommand is null ||
-            !_logs.TryGetValue(SelectedCommand.Command.Id, out var log))
-        {
-            return string.Empty;
-        }
-
-        var text = log.GetTailLines(_data.Settings.LogVisibleLineCount);
-        return FilterLogText(text);
     }
 
     public Task<IReadOnlyList<ManagedProject>> DiscoverProjectsAsync(string rootDirectory)
@@ -1084,13 +1000,6 @@ public sealed class MainViewModel : ObservableObject
             throw new InvalidOperationException("所选分组不存在。");
         }
 
-        if (!string.IsNullOrWhiteSpace(project.HealthCheckUrl) &&
-            (!Uri.TryCreate(project.HealthCheckUrl, UriKind.Absolute, out var healthUri) ||
-             healthUri.Scheme is not ("http" or "https")))
-        {
-            throw new InvalidOperationException("健康检查 URL 必须是有效的 HTTP/HTTPS 地址。");
-        }
-
         if (_data.Projects.Any(item => item.Id != currentProjectId &&
             string.Equals(item.WorkingDirectory.TrimEnd('\\'), project.WorkingDirectory.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)))
         {
@@ -1308,6 +1217,10 @@ public sealed class MainViewModel : ObservableObject
         {
             throw new InvalidOperationException("请选择有效的外观模式。");
         }
+        if (!ThemeManager.AreThemeColorsValid(settings))
+        {
+            throw new InvalidOperationException("主题颜色格式无效或前景色与背景色对比度不足。");
+        }
         if (settings.CloseBehavior is not ("MinimizeToTray" or "Exit"))
         {
             throw new InvalidOperationException("请选择有效的窗口关闭行为。");
@@ -1473,7 +1386,7 @@ public sealed class MainViewModel : ObservableObject
     private string FilterLogText(string text)
     {
         var search = LogSearchText.Trim();
-        if (search.Length == 0 && !LogErrorsOnly)
+        if (search.Length == 0)
         {
             return text;
         }
@@ -1482,9 +1395,7 @@ public sealed class MainViewModel : ObservableObject
             Environment.NewLine,
             text.ReplaceLineEndings("\n")
                 .Split('\n')
-                .Where(line =>
-                    (!LogErrorsOnly || line.Contains("[错误]", StringComparison.OrdinalIgnoreCase)) &&
-                    (search.Length == 0 || line.Contains(search, StringComparison.OrdinalIgnoreCase))));
+                .Where(line => search.Length == 0 || line.Contains(search, StringComparison.OrdinalIgnoreCase)));
     }
 
     private void ReplaceDisplayedLog(string text) =>
@@ -1519,8 +1430,7 @@ public sealed class MainViewModel : ObservableObject
                         project.Name,
                         command.Name,
                         command.CommandText,
-                        snapshot?.StartedAt,
-                        snapshot?.WorkingSetBytes ?? 0);
+                        snapshot?.StartedAt);
                 }))
             .OrderBy(item => item.ProjectName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(item => item.CommandName, StringComparer.CurrentCultureIgnoreCase)
@@ -1541,8 +1451,7 @@ public sealed record RunningCommandSummary(
     string ProjectName,
     string CommandName,
     string CommandText,
-    DateTime? StartedAt,
-    long WorkingSetBytes)
+    DateTime? StartedAt)
 {
     public string ProjectDisplayName => string.IsNullOrWhiteSpace(GroupName)
         ? ProjectName
@@ -1551,10 +1460,6 @@ public sealed record RunningCommandSummary(
     public string DurationDisplay => StartedAt.HasValue
         ? FormatDuration(DateTime.Now - StartedAt.Value)
         : "未知时长";
-
-    public string MemoryDisplay => WorkingSetBytes > 0
-        ? $"{WorkingSetBytes / 1024d / 1024d:0.#} MB"
-        : "内存未知";
 
     private static string FormatDuration(TimeSpan duration)
     {
@@ -1566,13 +1471,6 @@ public sealed record RunningCommandSummary(
         return $"{duration.Minutes:0}m {duration.Seconds:00}s";
     }
 }
-
-public sealed record HealthCheckResult(
-    bool IsReachable,
-    int? StatusCode,
-    bool IsHealthy,
-    TimeSpan Elapsed,
-    string Detail);
 
 public sealed class RunPlanCommandChoice
 {

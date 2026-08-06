@@ -5,7 +5,7 @@
         xmlns:mi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
         Title="项目"
         Width="880"
-        Height="760"
+        Height="820"
         MinWidth="720"
         MinHeight="660"
         WindowStyle="None"
@@ -37,7 +37,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="RowSurface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" /></Trigger>
-                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="RowSurface" Property="BorderBrush" Value="{DynamicResource AccentStrongBrush}" /></Trigger>
+                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="RowSurface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -118,8 +118,6 @@
                                 <mi:MaterialIcon Kind="FolderOpenOutline" Width="17" Height="17" />
                             </Button>
                         </Grid>
-                        <TextBlock Text="健康检查 URL" Style="{StaticResource FieldLabel}" Margin="0,14,0,0" />
-                        <TextBox x:Name="HealthUrlTextBox" Tag="例如：http://localhost:5000/health" />
                     </StackPanel>
 
                     <Grid Grid.Row="2" Margin="1,20,0,9">
@@ -171,7 +169,7 @@
                                  ItemsSource="{Binding Commands}"
                                  ItemContainerStyle="{StaticResource CommandEditorItem}"
                                  MinHeight="280"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                 ScrollViewer.VerticalScrollBarVisibility="Visible">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid>
@@ -186,6 +184,7 @@
                                         <TextBox Grid.Column="2"
                                                  Text="{Binding CommandText, UpdateSourceTrigger=PropertyChanged}"
                                                  Tag="例如：npm run dev"
+                                                 FontFamily="{DynamicResource LogFontFamily}"
                                                  Style="{StaticResource CommandInlineEditor}" />
                                     </Grid>
                                 </DataTemplate>

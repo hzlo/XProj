@@ -41,7 +41,7 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -73,7 +73,7 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -87,7 +87,7 @@
             <Setter Property="Padding" Value="8,5" />
             <Setter Property="HorizontalContentAlignment" Value="Right" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontFamily" Value="{DynamicResource LogFontFamily}" />
         </Style>
 
         <Style TargetType="CheckBox">
@@ -129,7 +129,7 @@
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="Box" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentStrongBrush}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                                 <Setter TargetName="Check" Property="Visibility" Value="Visible" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">

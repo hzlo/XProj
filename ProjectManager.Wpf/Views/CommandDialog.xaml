@@ -64,7 +64,8 @@
                         </Grid.RowDefinitions>
                         <TextBlock Text="命令" Style="{StaticResource FieldLabel}" />
                         <TextBox x:Name="CommandTextBox" Grid.Row="1" Tag="例如：java -jar app.jar"
-                                 AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                                 AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                                 FontFamily="{DynamicResource LogFontFamily}" />
                     </Grid>
                     <Grid Grid.Row="2" Margin="0,16,0,0">
                         <Grid.RowDefinitions>
@@ -78,7 +79,7 @@
                                  AcceptsReturn="True"
                                  TextWrapping="NoWrap"
                                  VerticalContentAlignment="Top"
-                                 FontFamily="Consolas" />
+                                 FontFamily="{DynamicResource LogFontFamily}" />
                     </Grid>
                 </Grid>
             </Border>

@@ -9,13 +9,83 @@ namespace ProjectManager.Wpf;
 
 public partial class App : Application
 {
+    private SingleInstanceCoordinator? _singleInstance;
+    private bool _isShuttingDown;
+
     protected override void OnStartup(StartupEventArgs e)
     {
+        _singleInstance = new SingleInstanceCoordinator();
+        if (!_singleInstance.IsFirstInstance)
+        {
+            _singleInstance.ActivateExistingInstance();
+            _singleInstance.Dispose();
+            _singleInstance = null;
+            Shutdown();
+            return;
+        }
+
+        _singleInstance.ActivationRequested += SingleInstanceOnActivationRequested;
         EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler(Window_Loaded));
         EventManager.RegisterClassHandler(typeof(ButtonBase), UIElement.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(Button_Pressed), true);
         EventManager.RegisterClassHandler(typeof(ButtonBase), UIElement.PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(Button_Released), true);
         EventManager.RegisterClassHandler(typeof(ButtonBase), UIElement.MouseLeaveEvent, new MouseEventHandler(Button_Released), true);
         base.OnStartup(e);
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _isShuttingDown = true;
+        DisposeSingleInstanceCoordinator();
+        base.OnExit(e);
+    }
+
+    internal void ShutdownApplication()
+    {
+        if (_isShuttingDown)
+        {
+            return;
+        }
+
+        _isShuttingDown = true;
+        DisposeSingleInstanceCoordinator();
+        Shutdown();
+    }
+
+    private void SingleInstanceOnActivationRequested(object? sender, EventArgs e)
+    {
+        if (_isShuttingDown || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+        {
+            return;
+        }
+
+        try
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!_isShuttingDown &&
+                    !Dispatcher.HasShutdownStarted &&
+                    !Dispatcher.HasShutdownFinished &&
+                    MainWindow is MainWindow window)
+                {
+                    window.ShowFromExternalActivation();
+                }
+            }));
+        }
+        catch (InvalidOperationException) when (_isShuttingDown || Dispatcher.HasShutdownStarted)
+        {
+        }
+    }
+
+    private void DisposeSingleInstanceCoordinator()
+    {
+        if (_singleInstance is null)
+        {
+            return;
+        }
+
+        _singleInstance.ActivationRequested -= SingleInstanceOnActivationRequested;
+        _singleInstance.Dispose();
+        _singleInstance = null;
     }
 
     private static void Window_Loaded(object sender, RoutedEventArgs e)

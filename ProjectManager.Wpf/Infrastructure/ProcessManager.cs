@@ -56,6 +56,7 @@ public sealed class ProcessManager : IAsyncDisposable
             RedirectStandardError = true,
             CreateNoWindow = true
         };
+        SystemEnvironment.Refresh(startInfo);
         ApplyEnvironmentVariables(startInfo, command.EnvironmentVariables);
 
         var process = new Process
@@ -150,27 +151,9 @@ public sealed class ProcessManager : IAsyncDisposable
 
     public IReadOnlyList<ProcessRuntimeSnapshot> GetRuntimeSnapshots()
     {
-        return _runningProcesses.Values.Select(item =>
-        {
-            var workingSetBytes = 0L;
-            try
-            {
-                item.Process.Refresh();
-                if (!item.Process.HasExited)
-                {
-                    workingSetBytes = item.Process.WorkingSet64;
-                }
-            }
-            catch (InvalidOperationException)
-            {
-            }
-
-            return new ProcessRuntimeSnapshot(
-                item.ProjectId,
-                item.CommandId,
-                item.StartedAt,
-                workingSetBytes);
-        }).ToList();
+        return _runningProcesses.Values
+            .Select(item => new ProcessRuntimeSnapshot(item.ProjectId, item.CommandId, item.StartedAt))
+            .ToList();
     }
 
     public async ValueTask DisposeAsync()
@@ -333,4 +316,4 @@ public sealed class ProcessManager : IAsyncDisposable
 
 public sealed record ProcessOutputEventArgs(Guid CommandId, string Text, bool IsError);
 public sealed record ProcessExitedEventArgs(Guid CommandId, int ExitCode);
-public sealed record ProcessRuntimeSnapshot(Guid ProjectId, Guid CommandId, DateTime StartedAt, long WorkingSetBytes);
+public sealed record ProcessRuntimeSnapshot(Guid ProjectId, Guid CommandId, DateTime StartedAt);

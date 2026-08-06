@@ -426,25 +426,6 @@ public partial class MainWindow : Window
         await ExecuteAsync(() => _viewModel.ToggleProjectFavoriteAsync(project.Id));
     }
 
-    private void OpenProjectUrl_Click(object sender, RoutedEventArgs e) =>
-        Execute(() => _viewModel.OpenSelectedProjectUrl());
-
-    private async void CheckProjectHealth_Click(object sender, RoutedEventArgs e)
-    {
-        await ExecuteAsync(async () =>
-        {
-            var result = await _viewModel.CheckSelectedProjectHealthAsync();
-            var message = result.IsReachable
-                ? $"HTTP {result.StatusCode} · {result.Elapsed.TotalMilliseconds:0} ms\n{result.Detail}"
-                : $"无法连接 · {result.Elapsed.TotalMilliseconds:0} ms\n{result.Detail}";
-            AppDialog.Show(
-                this,
-                result.IsHealthy ? "健康检查通过" : "健康检查失败",
-                message,
-                result.IsHealthy ? AppDialogKind.Information : AppDialogKind.Error);
-        });
-    }
-
     private async void CommandButton_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is CommandRuntimeViewModel command)
@@ -537,25 +518,6 @@ public partial class MainWindow : Window
     }
 
     private void ClearLog_Click(object sender, RoutedEventArgs e) => _viewModel.ClearSelectedLog();
-
-    private async void ExportLog_Click(object sender, RoutedEventArgs e)
-    {
-        if (_viewModel.SelectedCommand is null)
-        {
-            return;
-        }
-
-        var dialog = new Microsoft.Win32.SaveFileDialog
-        {
-            Filter = "日志文件 (*.log)|*.log|文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*",
-            FileName = $"{_viewModel.SelectedCommand.Command.Name}.log",
-            AddExtension = true
-        };
-        if (dialog.ShowDialog(this) == true)
-        {
-            await ExecuteAsync(() => _viewModel.ExportSelectedLogAsync(dialog.FileName));
-        }
-    }
 
     private async void Settings_Click(object sender, RoutedEventArgs e)
     {
@@ -838,8 +800,23 @@ public partial class MainWindow : Window
         _trayIcon.ShowBalloonTip(2500);
     }
 
+    internal void ShowFromExternalActivation()
+    {
+        if (_isExiting || _shutdownCompleted || !IsLoaded)
+        {
+            return;
+        }
+
+        ShowFromTray();
+    }
+
     private void ShowFromTray()
     {
+        if (_isExiting || _shutdownCompleted || !IsLoaded)
+        {
+            return;
+        }
+
         Show();
         if (WindowState == WindowState.Minimized)
         {
@@ -1006,13 +983,20 @@ public partial class MainWindow : Window
         try
         {
             await _viewModel.ShutdownAsync();
-            _shutdownCompleted = true;
             _trayIcon.Visible = false;
             var trayImage = _trayIcon.Icon;
             _trayIcon.Dispose();
             trayImage?.Dispose();
             _trayMenu.Dispose();
-            Application.Current.Shutdown();
+            _shutdownCompleted = true;
+            if (Application.Current is App app)
+            {
+                app.ShutdownApplication();
+            }
+            else
+            {
+                Application.Current.Shutdown();
+            }
         }
         catch (Exception exception)
         {

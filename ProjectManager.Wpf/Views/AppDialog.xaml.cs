@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using Material.Icons;
 
 namespace ProjectManager.Wpf.Views;
 
@@ -18,11 +19,11 @@ public partial class AppDialog : Window
         Title = title;
         Heading = heading;
         Message = message;
-        (IconGlyph, IconBrush, IconBackground) = kind switch
+        (IconKind, IconBrush, IconBackground) = kind switch
         {
-            AppDialogKind.Error => ("\uEA39", Brush("#FFFF6961"), Brush("#33FF453A")),
-            AppDialogKind.Warning => ("\uE7BA", Brush("#FFFFB340"), Brush("#33FF9F0A")),
-            _ => ("\uE946", Brush("#FF64A9FF"), Brush("#330A84FF"))
+            AppDialogKind.Error => (MaterialIconKind.AlertCircleOutline, Brush("#FFFF6961"), Brush("#33FF453A")),
+            AppDialogKind.Warning => (MaterialIconKind.AlertOutline, Brush("#FFFFB340"), Brush("#33FF9F0A")),
+            _ => (MaterialIconKind.InformationOutline, Brush("#FF64A9FF"), Brush("#330A84FF"))
         };
         PrimaryButton.Content = primaryText;
         CancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
@@ -36,7 +37,7 @@ public partial class AppDialog : Window
 
     public string Heading { get; }
     public string Message { get; }
-    public string IconGlyph { get; }
+    public MaterialIconKind IconKind { get; }
     public Brush IconBrush { get; }
     public Brush IconBackground { get; }
 

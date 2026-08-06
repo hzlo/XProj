@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Threading;
 using ProjectManager.Wpf.Models;
 using ProjectManager.Wpf.ViewModels;
 using Forms = System.Windows.Forms;
@@ -25,7 +26,6 @@ public partial class ProjectDialog : Window
 
         NameTextBox.Text = project?.Name ?? string.Empty;
         PathTextBox.Text = project?.WorkingDirectory ?? string.Empty;
-        HealthUrlTextBox.Text = project?.HealthCheckUrl ?? string.Empty;
         var selectedGroupId = project?.GroupId ?? defaultGroupId;
         GroupComboBox.SelectedItem = _groupChoices.FirstOrDefault(item => item.Id == selectedGroupId) ?? _groupChoices.First();
 
@@ -73,7 +73,11 @@ public partial class ProjectDialog : Window
         var draft = new ProjectCommandDraft { Name = "启动", CommandText = string.Empty };
         Commands.Add(draft);
         CommandsList.SelectedItem = draft;
-        CommandsList.ScrollIntoView(draft);
+        Dispatcher.BeginInvoke(() =>
+        {
+            CommandsList.UpdateLayout();
+            CommandsList.ScrollIntoView(draft);
+        }, DispatcherPriority.Loaded);
     }
 
     private void RemoveCommand_Click(object sender, RoutedEventArgs e)
@@ -111,7 +115,6 @@ public partial class ProjectDialog : Window
             Name = NameTextBox.Text.Trim(),
             WorkingDirectory = Path.GetFullPath(PathTextBox.Text.Trim()),
             GroupId = (GroupComboBox.SelectedItem as GroupChoice)?.Id,
-            HealthCheckUrl = HealthUrlTextBox.Text.Trim(),
             Commands = Commands.Select((item, index) => new ProjectCommand
             {
                 Id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,

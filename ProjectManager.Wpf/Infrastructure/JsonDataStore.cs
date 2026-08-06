@@ -122,6 +122,7 @@ public sealed class JsonDataStore
         {
             data.Settings.Theme = "Dark";
         }
+        ThemeManager.NormalizeThemeColors(data.Settings);
         if (data.Settings.CloseBehavior is not ("MinimizeToTray" or "Exit"))
         {
             data.Settings.CloseBehavior = "MinimizeToTray";
@@ -153,7 +154,6 @@ public sealed class JsonDataStore
         foreach (var project in data.Projects)
         {
             project.Commands ??= new List<ProjectCommand>();
-            project.HealthCheckUrl ??= string.Empty;
             foreach (var command in project.Commands)
             {
                 if (command.Shell is not ("Cmd" or "PowerShell"))

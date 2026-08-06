@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
+using ProjectManager.Wpf.Infrastructure;
 using ProjectManager.Wpf.Models;
 
 namespace ProjectManager.Wpf.Views;
@@ -44,6 +45,10 @@ public partial class SettingsDialog : Window
     private void ApplySettingsToControls(AppSettings settings)
     {
         ThemeComboBox.SelectedIndex = settings.Theme == "Light" ? 1 : 0;
+        LightForegroundTextBox.Text = settings.LightForegroundColor;
+        LightBackgroundTextBox.Text = settings.LightBackgroundColor;
+        DarkForegroundTextBox.Text = settings.DarkForegroundColor;
+        DarkBackgroundTextBox.Text = settings.DarkBackgroundColor;
         CloseBehaviorComboBox.SelectedIndex = settings.CloseBehavior == "Exit" ? 1 : 0;
         UiFontComboBox.SelectedItem = FindFont(settings.UiFontFamily);
         UiFontSizeComboBox.SelectedItem = Math.Round(settings.UiFontSize);
@@ -53,6 +58,85 @@ public partial class SettingsDialog : Window
         LogItalicToggle.IsChecked = settings.LogFontItalic;
         LogVisibleLineCountComboBox.SelectedItem = settings.LogVisibleLineCount;
         UpdatePreviews();
+    }
+
+    private void ThemeColorTextChanged(object sender, TextChangedEventArgs e) => UpdateThemeColorPreviews();
+
+    private void UpdateThemeColorPreviews()
+    {
+        UpdateThemeColorPreview(
+            LightForegroundTextBox?.Text,
+            LightBackgroundTextBox?.Text,
+            LightColorPreview,
+            LightColorPreviewText);
+        UpdateThemeColorPreview(
+            DarkForegroundTextBox?.Text,
+            DarkBackgroundTextBox?.Text,
+            DarkColorPreview,
+            DarkColorPreviewText);
+        UpdatePickerButton(LightBackgroundPickerButton, LightBackgroundTextBox?.Text);
+        UpdatePickerButton(LightForegroundPickerButton, LightForegroundTextBox?.Text);
+        UpdatePickerButton(DarkBackgroundPickerButton, DarkBackgroundTextBox?.Text);
+        UpdatePickerButton(DarkForegroundPickerButton, DarkForegroundTextBox?.Text);
+    }
+
+    private static void UpdatePickerButton(Button? button, string? color)
+    {
+        if (button is null || !ThemeManager.TryNormalizeColor(color, out var normalized))
+        {
+            return;
+        }
+
+        button.Background = CreateColorBrush(normalized);
+        button.BorderBrush = new SolidColorBrush(Colors.White);
+        button.BorderThickness = new Thickness(2);
+    }
+
+    private void PickLightBackground_Click(object sender, RoutedEventArgs e) => PickColor(LightBackgroundTextBox);
+    private void PickLightForeground_Click(object sender, RoutedEventArgs e) => PickColor(LightForegroundTextBox);
+    private void PickDarkBackground_Click(object sender, RoutedEventArgs e) => PickColor(DarkBackgroundTextBox);
+    private void PickDarkForeground_Click(object sender, RoutedEventArgs e) => PickColor(DarkForegroundTextBox);
+
+    private void PickColor(TextBox target)
+    {
+        var dialog = new ColorPickerDialog(target.Text) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.ResultColor is not null)
+        {
+            target.Text = dialog.ResultColor;
+        }
+    }
+
+    private static void UpdateThemeColorPreview(
+        string? foregroundText,
+        string? backgroundText,
+        Border? preview,
+        TextBlock? previewText)
+    {
+        if (preview is null || previewText is null ||
+            !ThemeManager.TryNormalizeColor(foregroundText, out var foreground) ||
+            !ThemeManager.TryNormalizeColor(backgroundText, out var background))
+        {
+            return;
+        }
+
+        preview.Background = CreateColorBrush(background);
+        previewText.Foreground = CreateColorBrush(foreground);
+        previewText.Text = ThemeManager.HasReadableContrast(foreground, background) ? "示例文字" : "对比度不足";
+    }
+
+    private static SolidColorBrush CreateColorBrush(string color) =>
+        new((Color)ColorConverter.ConvertFromString(color));
+
+    private void ResetLightColors_Click(object sender, RoutedEventArgs e)
+    {
+        LightForegroundTextBox.Text = AppSettings.DefaultLightForegroundColor;
+        LightBackgroundTextBox.Text = AppSettings.DefaultLightBackgroundColor;
+    }
+
+    private void ResetDarkColors_Click(object sender, RoutedEventArgs e)
+    {
+        DarkForegroundTextBox.Text = AppSettings.DefaultDarkForegroundColor;
+        DarkBackgroundTextBox.Text = AppSettings.DefaultDarkBackgroundColor;
     }
 
     private FontFamily FindFont(string source) =>
@@ -146,6 +230,11 @@ public partial class SettingsDialog : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
+        if (!TryGetThemeColors(out var lightForeground, out var lightBackground, out var darkForeground, out var darkBackground))
+        {
+            return;
+        }
+
         if (ThemeComboBox.SelectedIndex < 0 || CloseBehaviorComboBox.SelectedIndex < 0 ||
             UiFontComboBox.SelectedItem is not FontFamily uiFont || UiFontSizeComboBox.SelectedItem is not double uiFontSize ||
             LogFontComboBox.SelectedItem is not FontFamily logFont || LogFontSizeComboBox.SelectedItem is not double logFontSize ||
@@ -158,6 +247,10 @@ public partial class SettingsDialog : Window
         Result = new AppSettings
         {
             Theme = ThemeComboBox.SelectedIndex == 1 ? "Light" : "Dark",
+            LightForegroundColor = lightForeground,
+            LightBackgroundColor = lightBackground,
+            DarkForegroundColor = darkForeground,
+            DarkBackgroundColor = darkBackground,
             CloseBehavior = CloseBehaviorComboBox.SelectedIndex == 1 ? "Exit" : "MinimizeToTray",
             UiFontFamily = uiFont.Source,
             UiFontSize = uiFontSize,
@@ -168,5 +261,34 @@ public partial class SettingsDialog : Window
             LogVisibleLineCount = logVisibleLineCount
         };
         DialogResult = true;
+    }
+
+    private bool TryGetThemeColors(
+        out string lightForeground,
+        out string lightBackground,
+        out string darkForeground,
+        out string darkBackground)
+    {
+        lightForeground = string.Empty;
+        lightBackground = string.Empty;
+        darkForeground = string.Empty;
+        darkBackground = string.Empty;
+        if (!ThemeManager.TryNormalizeColor(LightForegroundTextBox.Text, out lightForeground) ||
+            !ThemeManager.TryNormalizeColor(LightBackgroundTextBox.Text, out lightBackground) ||
+            !ThemeManager.TryNormalizeColor(DarkForegroundTextBox.Text, out darkForeground) ||
+            !ThemeManager.TryNormalizeColor(DarkBackgroundTextBox.Text, out darkBackground))
+        {
+            ValidationText.Text = "主题颜色请使用 #RRGGBB 格式。";
+            return false;
+        }
+
+        if (!ThemeManager.HasReadableContrast(lightForeground, lightBackground) ||
+            !ThemeManager.HasReadableContrast(darkForeground, darkBackground))
+        {
+            ValidationText.Text = "前景色与背景色对比度不足，请调整后再保存。";
+            return false;
+        }
+
+        return true;
     }
 }

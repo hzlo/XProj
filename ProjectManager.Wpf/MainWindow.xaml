@@ -39,7 +39,7 @@
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource SubtleHoverBrush}" /></Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                                <Setter TargetName="ItemSurface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                                <Setter TargetName="ItemSurface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -70,7 +70,7 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Surface" Property="Background" Value="{DynamicResource PressedBrush}" />
@@ -211,45 +211,6 @@
 
         <Style x:Key="ActionChip" TargetType="Button" BasedOn="{StaticResource IconButton}" />
 
-        <Style x:Key="LogFilterToggle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="64" />
-            <Setter Property="Height" Value="38" />
-            <Setter Property="MinHeight" Value="38" />
-            <Setter Property="Padding" Value="10,5" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="Background" Value="{DynamicResource InsetPanelBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="Surface"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="9"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource HoverBrush}" />
-                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <Style x:Key="RunningStatusChip" TargetType="ToggleButton">
             <Setter Property="Background" Value="{DynamicResource TitleStatusBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
@@ -278,7 +239,7 @@
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource SelectedBorderBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -355,8 +316,8 @@
             </Grid.RowDefinitions>
 
             <Grid Margin="14,0,8,0">
-                <Image Width="26" Height="26" Source="{DynamicResource AppLogo}" Stretch="Uniform" HorizontalAlignment="Left"
-                       RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                <Border Width="26" Height="26" Background="{DynamicResource AppLogoBrush}" HorizontalAlignment="Left"
+                        RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="36,0,0,0">
                     <TextBlock Text="XProj" FontSize="13" />
                     <TextBlock Text="本地工作台" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="10,1,0,0" />
@@ -439,18 +400,12 @@
                                                                        TextTrimming="CharacterEllipsis" />
                                                             <TextBlock Text="{Binding CommandText}"
                                                                        Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                       FontFamily="Consolas"
+                                                                       FontFamily="{DynamicResource LogFontFamily}"
                                                                        FontSize="10"
                                                                        Margin="0,3,0,0"
                                                                        TextTrimming="CharacterEllipsis" />
                                                             <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                                                                 <TextBlock Text="{Binding DurationDisplay}"
-                                                                           Foreground="{DynamicResource MutedTextBrush}"
-                                                                           FontSize="10" />
-                                                                <TextBlock Text=" · "
-                                                                           Foreground="{DynamicResource MutedTextBrush}"
-                                                                           FontSize="10" />
-                                                                <TextBlock Text="{Binding MemoryDisplay}"
                                                                            Foreground="{DynamicResource MutedTextBrush}"
                                                                            FontSize="10" />
                                                             </StackPanel>
@@ -608,35 +563,6 @@
                                                             Orientation="Horizontal"
                                                             HorizontalAlignment="Right"
                                                             VerticalAlignment="Center">
-                                                    <Border Width="44" Height="28"
-                                                            Margin="0,0,6,0"
-                                                            Background="{DynamicResource InsetPanelBrush}"
-                                                            BorderBrush="{DynamicResource SoftBorderBrush}"
-                                                            BorderThickness="1"
-                                                            CornerRadius="8"
-                                                            Padding="6,0">
-                                                        <TextBlock Foreground="{DynamicResource MutedTextBrush}"
-                                                                   FontSize="10"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"
-                                                                   TextAlignment="Center">
-                                                            <Run Text="{Binding Commands.Count, Mode=OneWay}" /><Run Text=" 项" />
-                                                        </TextBlock>
-                                                    </Border>
-                                                    <Button Padding="0"
-                                                            ToolTip="收藏项目" Click="ToggleFavorite_Click">
-                                                        <Button.Style>
-                                                            <Style TargetType="Button" BasedOn="{StaticResource ProjectMetaButton}">
-                                                                <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Button.Style>
-                                                        <mi:MaterialIcon Kind="StarOutline" Width="15" Height="15" />
-                                                    </Button>
                                                 </StackPanel>
                                             </Grid>
                                                 <TextBlock Text="{Binding WorkingDirectory}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
@@ -706,12 +632,6 @@
                                 <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <Button Style="{StaticResource ActionChip}" ToolTip="收藏项目" Click="ToggleFavorite_Click">
                                         <mi:MaterialIcon Kind="StarOutline" Width="15" Height="15" />
-                                    </Button>
-                                    <Button Style="{StaticResource ActionChip}" ToolTip="打开项目 URL" Click="OpenProjectUrl_Click">
-                                        <mi:MaterialIcon Kind="OpenInNew" Width="15" Height="15" />
-                                    </Button>
-                                    <Button Style="{StaticResource ActionChip}" ToolTip="检查健康状态" Click="CheckProjectHealth_Click">
-                                        <mi:MaterialIcon Kind="CheckCircleOutline" Width="15" Height="15" />
                                     </Button>
                                     <Button Style="{StaticResource ActionChip}" ToolTip="编辑项目" Click="EditProject_Click">
                                         <mi:MaterialIcon Kind="PencilOutline" Width="15" Height="15" />
@@ -801,32 +721,30 @@
                             <Grid>
                                 <Grid.RowDefinitions><RowDefinition Height="48" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                                 <Grid Margin="16,0">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="实时日志" Style="{StaticResource SectionTitle}" />
-                                        <Border Background="{DynamicResource SelectedBrush}" CornerRadius="8" Padding="8,2" Margin="9,0,0,0">
+                                        <Border Background="{DynamicResource SelectedBrush}" CornerRadius="8" Padding="8,2" Margin="9,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding SelectedCommand.Name, TargetNullValue=未选择命令}" Foreground="{DynamicResource AccentBrush}" FontSize="10" />
                                         </Border>
                                     </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Grid Width="178" Height="38" Margin="0,0,7,0">
-                                            <TextBox Height="38"
-                                                     Padding="28,9,8,9"
-                                                     Background="{DynamicResource InsetPanelBrush}"
-                                                     BorderBrush="{DynamicResource SoftBorderBrush}"
-                                                     Tag="搜索日志"
-                                                     Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}" />
-                                            <mi:MaterialIcon Kind="Magnify" Width="13" Height="13"
-                                                             Foreground="{DynamicResource MutedTextBrush}"
-                                                             Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                             IsHitTestVisible="False" />
-                                        </Grid>
-                                        <ToggleButton Style="{StaticResource LogFilterToggle}" IsChecked="{Binding LogErrorsOnly, Mode=TwoWay}"
-                                                      ToolTip="仅显示错误日志">
-                                            <TextBlock Text="仅错误" FontSize="10" />
-                                        </ToggleButton>
-                                        <Button Style="{StaticResource ActionChip}" ToolTip="导出日志" Click="ExportLog_Click">
-                                            <mi:MaterialIcon Kind="DownloadOutline" Width="15" Height="15" />
-                                        </Button>
+                                    <Grid Grid.Column="1" Width="178" Height="38" Margin="14,0,0,0" HorizontalAlignment="Left">
+                                        <TextBox Height="38"
+                                                 Padding="28,9,8,9"
+                                                 Background="{DynamicResource InsetPanelBrush}"
+                                                 BorderBrush="{DynamicResource SoftBorderBrush}"
+                                                 Tag="搜索日志"
+                                                 Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                        <mi:MaterialIcon Kind="Magnify" Width="13" Height="13"
+                                                         Foreground="{DynamicResource MutedTextBrush}"
+                                                         Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                         IsHitTestVisible="False" />
+                                    </Grid>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button Style="{StaticResource ActionChip}" Foreground="{DynamicResource WarningBrush}" ToolTip="停止命令"
                                                 IsEnabled="{Binding SelectedCommand.CanStop, FallbackValue=False, TargetNullValue=False}" Click="StopCommand_Click">
                                             <mi:MaterialIcon Kind="StopCircleOutline" Width="16" Height="16" />
