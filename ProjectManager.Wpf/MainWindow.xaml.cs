@@ -29,7 +29,6 @@ public partial class MainWindow : Window
     private bool _isExiting;
     private bool _updateRestartConfirmed;
     private bool _logDisplayDirty;
-    private bool _trayHintShown;
     private Point _dragStartPoint;
     private object? _dragSourceItem;
 
@@ -160,7 +159,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            HideToTray();
+            Hide();
         }
     }
 
@@ -346,39 +345,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void DiscoverProjects_Click(object sender, RoutedEventArgs e)
-    {
-        using var dialog = new Forms.FolderBrowserDialog
-        {
-            Description = "选择要扫描的项目根目录",
-            UseDescriptionForTitle = true,
-            ShowNewFolderButton = false
-        };
-        if (dialog.ShowDialog() != Forms.DialogResult.OK)
-        {
-            return;
-        }
-
-        await ExecuteAsync(async () =>
-        {
-            var projects = await _viewModel.DiscoverProjectsAsync(dialog.SelectedPath);
-            if (projects.Count == 0)
-            {
-                AppDialog.Show(this, "扫描项目", "没有发现新的可管理项目。");
-                return;
-            }
-
-            var discoveryDialog = new ProjectDiscoveryDialog(dialog.SelectedPath, projects)
-            {
-                Owner = this
-            };
-            if (discoveryDialog.ShowDialog() == true)
-            {
-                await _viewModel.AddDiscoveredProjectsAsync(discoveryDialog.Result);
-            }
-        });
-    }
-
     private async void EditProject_Click(object sender, RoutedEventArgs e)
     {
         var project = _viewModel.SelectedProject;
@@ -415,17 +381,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void ToggleFavorite_Click(object sender, RoutedEventArgs e)
-    {
-        var project = (sender as FrameworkElement)?.DataContext as ManagedProject ?? _viewModel.SelectedProject;
-        if (project is null)
-        {
-            return;
-        }
-
-        await ExecuteAsync(() => _viewModel.ToggleProjectFavoriteAsync(project.Id));
-    }
-
     private async void CommandButton_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is CommandRuntimeViewModel command)
@@ -436,6 +391,16 @@ public partial class MainWindow : Window
                 await ExecuteAsync(() => _viewModel.RunCommandAsync(command));
             }
         }
+    }
+
+    private async void StopAllCommands_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_viewModel.HasRunningCommands)
+        {
+            return;
+        }
+
+        await ExecuteAsync(_viewModel.StopAllCommandsAsync);
     }
 
     private async void RunCommand_Click(object sender, RoutedEventArgs e)
@@ -530,6 +495,11 @@ public partial class MainWindow : Window
                 ThemeManager.Apply(settings);
                 return settings;
             },
+            settings =>
+            {
+                ThemeManager.Apply(settings);
+                _viewModel.PreviewLogSettings(settings);
+            },
             UpdateChecker.CurrentVersionDisplay,
             owner => CheckForUpdatesAsync(owner, showUpToDateMessage: true))
         {
@@ -542,6 +512,20 @@ public partial class MainWindow : Window
                 await _viewModel.UpdateSettingsAsync(dialog.Result);
                 ThemeManager.Apply(dialog.Result);
             });
+            return;
+        }
+
+        var currentSettings = _viewModel.CurrentSettings;
+        ThemeManager.Apply(currentSettings);
+        _viewModel.RestoreLogSettingsPreview();
+    }
+
+    private async void RunPlanSidebar_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.DataContext is RunPlan runPlan)
+        {
+            await ExecuteAsync(() => _viewModel.RunPlanAsync(runPlan.Id));
         }
     }
 
@@ -784,20 +768,6 @@ public partial class MainWindow : Window
         }
 
         return FindParent(_viewModel.GroupItems, groupId)?.GroupId;
-    }
-
-    private void HideToTray()
-    {
-        Hide();
-        if (_trayHintShown)
-        {
-            return;
-        }
-
-        _trayHintShown = true;
-        _trayIcon.BalloonTipTitle = "XProj 仍在运行";
-        _trayIcon.BalloonTipText = "项目进程会继续运行。双击托盘图标可恢复窗口。";
-        _trayIcon.ShowBalloonTip(2500);
     }
 
     internal void ShowFromExternalActivation()

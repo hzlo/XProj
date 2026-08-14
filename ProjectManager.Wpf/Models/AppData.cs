@@ -62,8 +62,6 @@ public sealed class ManagedProject
     public string Name { get; set; } = string.Empty;
     public string WorkingDirectory { get; set; } = string.Empty;
     public Guid? GroupId { get; set; }
-    public bool IsFavorite { get; set; }
-    public DateTime? LastUsedAt { get; set; }
     public int SortOrder { get; set; }
     public List<ProjectCommand> Commands { get; set; } = new();
 }

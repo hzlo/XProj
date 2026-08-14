@@ -27,6 +27,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ConcurrentQueue<PendingProcessOutput> _pendingOutput = new();
     private RollingLineBuffer _displayedLog = new(300, 76_800, 61_440);
     private AppData _data = new();
+    private AppSettings? _previewLogSettings;
     private GroupTreeItem? _selectedGroup;
     private ManagedProject? _selectedProject;
     private CommandRuntimeViewModel? _selectedCommand;
@@ -79,15 +80,9 @@ public sealed class MainViewModel : ObservableObject
         get => _selectedProject;
         set
         {
-            var previousProjectId = _selectedProject?.Id;
             if (SetProperty(ref _selectedProject, value))
             {
                 OnPropertyChanged(nameof(HasSelectedProject));
-                if (value is not null && previousProjectId != value.Id)
-                {
-                    value.LastUsedAt = DateTime.Now;
-                    _ = _dataStore.SaveAsync(_data);
-                }
                 RefreshCommands();
             }
         }
@@ -183,8 +178,16 @@ public sealed class MainViewModel : ObservableObject
     public int RunningCount
     {
         get => _runningCount;
-        private set => SetProperty(ref _runningCount, value);
+        private set
+        {
+            if (SetProperty(ref _runningCount, value))
+            {
+                OnPropertyChanged(nameof(HasRunningCommands));
+            }
+        }
     }
+
+    public bool HasRunningCommands => RunningCount > 0;
 
     public bool CanEditSelectedGroup => SelectedGroup?.Kind == GroupFilterKind.Group;
     public bool HasSelectedProject => SelectedProject is not null;
@@ -200,7 +203,8 @@ public sealed class MainViewModel : ObservableObject
     public async Task InitializeAsync()
     {
         _data = await _dataStore.LoadAsync();
-        ApplyLogFontSettings();
+        _previewLogSettings = null;
+        ApplyLogSettings(_data.Settings);
         NormalizeGroupHierarchy();
         NormalizeSortOrders();
         RebuildGroupTree(GroupFilterKind.All, null);
@@ -295,8 +299,6 @@ public sealed class MainViewModel : ObservableObject
         }
 
         project.SortOrder = _data.Projects[index].SortOrder;
-        project.IsFavorite = _data.Projects[index].IsFavorite;
-        project.LastUsedAt = _data.Projects[index].LastUsedAt;
         _data.Projects[index] = project;
         await _dataStore.SaveAsync(_data);
         RefreshProjects(project.Id);
@@ -356,6 +358,24 @@ public sealed class MainViewModel : ObservableObject
         UpdateRunningCount();
     }
 
+    public async Task StopAllCommandsAsync()
+    {
+        if (RunningCount == 0)
+        {
+            return;
+        }
+
+        StatusText = "正在停止整套环境...";
+        await _processManager.StopAllAsync();
+        foreach (var command in Commands)
+        {
+            command.SetRunning(false, "已停止");
+        }
+
+        UpdateRunningCount();
+        StatusText = "整套环境已停止";
+    }
+
     public async Task RestartCommandAsync(CommandRuntimeViewModel commandRuntime)
     {
         await _processManager.StopAsync(commandRuntime.Command.Id);
@@ -406,11 +426,27 @@ public sealed class MainViewModel : ObservableObject
     public async Task UpdateSettingsAsync(AppSettings settings)
     {
         ValidateSettings(settings);
+        _previewLogSettings = null;
         _data.Settings = settings.Clone();
-        ApplyLogFontSettings();
+        ApplyLogSettings(_data.Settings);
         RefreshLogText();
         await _dataStore.SaveAsync(_data);
         StatusText = "设置已保存";
+    }
+
+    public void PreviewLogSettings(AppSettings settings)
+    {
+        ValidateSettings(settings);
+        _previewLogSettings = settings.Clone();
+        ApplyLogSettings(_previewLogSettings);
+        RefreshLogText();
+    }
+
+    public void RestoreLogSettingsPreview()
+    {
+        _previewLogSettings = null;
+        ApplyLogSettings(_data.Settings);
+        RefreshLogText();
     }
 
     public Task ExportConfigurationAsync(string filePath) => _dataStore.ExportAsync(_data, filePath);
@@ -425,7 +461,8 @@ public sealed class MainViewModel : ObservableObject
         var importedData = await _dataStore.ImportAsync(filePath);
         ValidateSettings(importedData.Settings);
         _data = importedData;
-        ApplyLogFontSettings();
+        _previewLogSettings = null;
+        ApplyLogSettings(_data.Settings);
         NormalizeGroupHierarchy();
         NormalizeSortOrders();
         RebuildGroupTree(GroupFilterKind.All, null);
@@ -649,36 +686,6 @@ public sealed class MainViewModel : ObservableObject
         _systemLauncher.OpenInEditor(project.WorkingDirectory);
     }
 
-    public async Task ToggleProjectFavoriteAsync(Guid projectId)
-    {
-        var project = _data.Projects.SingleOrDefault(item => item.Id == projectId)
-            ?? throw new InvalidOperationException("项目不存在或已被删除。");
-        project.IsFavorite = !project.IsFavorite;
-        await _dataStore.SaveAsync(_data);
-        RefreshProjects(project.Id);
-        StatusText = project.IsFavorite ? $"已收藏项目：{project.Name}" : $"已取消收藏：{project.Name}";
-    }
-
-    public Task<IReadOnlyList<ManagedProject>> DiscoverProjectsAsync(string rootDirectory)
-    {
-        var discovered = ProjectDiscovery.Scan(rootDirectory);
-        var existingDirectories = _data.Projects
-            .Select(item => item.WorkingDirectory.TrimEnd('\\'))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        IReadOnlyList<ManagedProject> result = discovered
-            .Where(item => !existingDirectories.Contains(item.WorkingDirectory.TrimEnd('\\')))
-            .ToList();
-        return Task.FromResult(result);
-    }
-
-    public async Task AddDiscoveredProjectsAsync(IEnumerable<ManagedProject> projects)
-    {
-        foreach (var project in projects.ToList())
-        {
-            await AddProjectAsync(project);
-        }
-    }
-
     public async Task ShutdownAsync()
     {
         StatusText = "正在停止运行中的命令...";
@@ -700,8 +707,6 @@ public sealed class MainViewModel : ObservableObject
             query = SelectedGroup.Kind switch
             {
                 GroupFilterKind.Ungrouped => query.Where(item => item.GroupId is null),
-                GroupFilterKind.Recent => query.Where(item => item.LastUsedAt.HasValue),
-                GroupFilterKind.Favorites => query.Where(item => item.IsFavorite),
                 GroupFilterKind.Group when SelectedGroup.GroupId.HasValue =>
                     query.Where(item => item.GroupId.HasValue &&
                         GetDescendantGroupIds(SelectedGroup.GroupId.Value)
@@ -722,18 +727,10 @@ public sealed class MainViewModel : ObservableObject
                     command.CommandText.Contains(search, StringComparison.OrdinalIgnoreCase)));
         }
 
-        var result = SelectedGroup?.Kind switch
-        {
-            GroupFilterKind.Recent => query
-                .OrderByDescending(item => item.LastUsedAt)
-                .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList(),
-            _ => query
-                .OrderByDescending(item => item.IsFavorite)
-                .ThenBy(item => item.SortOrder)
-                .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList()
-        };
+        var result = query
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
         Projects.Clear();
         foreach (var project in result)
         {
@@ -787,8 +784,6 @@ public sealed class MainViewModel : ObservableObject
         GroupItems.Clear();
         GroupItems.Add(new GroupTreeItem("全部项目", GroupFilterKind.All, null));
         GroupItems.Add(new GroupTreeItem("未分组", GroupFilterKind.Ungrouped, null));
-        GroupItems.Add(new GroupTreeItem("最近使用", GroupFilterKind.Recent, null));
-        GroupItems.Add(new GroupTreeItem("收藏项目", GroupFilterKind.Favorites, null));
 
         var roots = _data.Groups
             .Where(item => item.ParentId is null)
@@ -1201,12 +1196,12 @@ public sealed class MainViewModel : ObservableObject
     private int GetLogGeneration(Guid commandId) =>
         _logGenerations.GetOrAdd(commandId, 0);
 
-    private void ApplyLogFontSettings()
+    private void ApplyLogSettings(AppSettings settings)
     {
-        LogFontFamily = new FontFamily(_data.Settings.LogFontFamily);
-        LogFontSize = _data.Settings.LogFontSize;
-        LogFontWeight = _data.Settings.LogFontBold ? FontWeights.Bold : FontWeights.Normal;
-        LogFontStyle = _data.Settings.LogFontItalic ? FontStyles.Italic : FontStyles.Normal;
+        LogFontFamily = new FontFamily(settings.LogFontFamily);
+        LogFontSize = settings.LogFontSize;
+        LogFontWeight = settings.LogFontBold ? FontWeights.Bold : FontWeights.Normal;
+        LogFontStyle = settings.LogFontItalic ? FontStyles.Italic : FontStyles.Normal;
         OnPropertyChanged(nameof(IsLogFontBold));
         OnPropertyChanged(nameof(IsLogFontItalic));
     }
@@ -1372,10 +1367,13 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    private int ActiveLogVisibleLineCount =>
+        (_previewLogSettings ?? _data.Settings).LogVisibleLineCount;
+
     private void RefreshLogText()
     {
         var text = SelectedCommand is not null && _logs.TryGetValue(SelectedCommand.Command.Id, out var log)
-            ? log.GetTailLines(_data.Settings.LogVisibleLineCount)
+            ? log.GetTailLines(ActiveLogVisibleLineCount)
             : string.Empty;
         text = FilterLogText(text);
         _displayedLog = CreateDisplayedLogBuffer();
@@ -1405,9 +1403,9 @@ public sealed class MainViewModel : ObservableObject
     {
         var maximumCharacters = Math.Max(
             MinimumDisplayedLogCharacters,
-            _data.Settings.LogVisibleLineCount * DisplayedCharactersPerLine);
+            ActiveLogVisibleLineCount * DisplayedCharactersPerLine);
         return new RollingLineBuffer(
-            _data.Settings.LogVisibleLineCount,
+            ActiveLogVisibleLineCount,
             maximumCharacters,
             maximumCharacters * 4 / 5);
     }
@@ -1472,8 +1470,11 @@ public sealed record RunningCommandSummary(
     }
 }
 
-public sealed class RunPlanCommandChoice
+public sealed class RunPlanCommandChoice : ObservableObject
 {
+    private bool _isSelected;
+    private int _delaySeconds;
+
     public RunPlanCommandChoice(
         Guid projectId,
         Guid commandId,
@@ -1486,18 +1487,37 @@ public sealed class RunPlanCommandChoice
         CommandId = commandId;
         ProjectDisplayName = projectDisplayName;
         CommandName = commandName;
-        IsSelected = isSelected;
-        DelaySeconds = delaySeconds;
+        GroupKey = new RunPlanCommandChoiceGroupKey(projectId, projectDisplayName);
+        _isSelected = isSelected;
+        _delaySeconds = delaySeconds;
     }
 
     public Guid ProjectId { get; }
     public Guid CommandId { get; }
     public string ProjectDisplayName { get; }
     public string CommandName { get; }
-    public bool IsSelected { get; set; }
-    public int DelaySeconds { get; set; }
+    public RunPlanCommandChoiceGroupKey GroupKey { get; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+
+    public int DelaySeconds
+    {
+        get => _delaySeconds;
+        set => SetProperty(ref _delaySeconds, value);
+    }
+
     public string DisplayName => $"{ProjectDisplayName} / {CommandName}";
+
+    public bool MatchesSearch(string? searchText) =>
+        string.IsNullOrWhiteSpace(searchText) ||
+        ProjectDisplayName.Contains(searchText.Trim(), StringComparison.CurrentCultureIgnoreCase) ||
+        CommandName.Contains(searchText.Trim(), StringComparison.CurrentCultureIgnoreCase);
 }
+
+public sealed record RunPlanCommandChoiceGroupKey(Guid ProjectId, string ProjectDisplayName);
 
 public sealed record LogDisplayUpdateEventArgs(
     string? ReplacementText,
@@ -1510,8 +1530,6 @@ public enum GroupFilterKind
 {
     All,
     Ungrouped,
-    Recent,
-    Favorites,
     Group
 }
 

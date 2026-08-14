@@ -46,17 +46,27 @@
             </Setter>
         </Style>
         <Style x:Key="ColorPickerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Width" Value="27" />
-            <Setter Property="Height" Value="27" />
-            <Setter Property="MinHeight" Value="27" />
+            <!-- The containing field has a 1 px border and a 10 px outer radius. Keep the
+                 picker inside that border and use the matching 9 px inner radius. -->
+            <Setter Property="Height" Value="36" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Ellipse x:Name="Dot" Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="2" />
+                        <Border x:Name="PreviewSurface"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="0,9,9,0"
+                                ClipToBounds="True">
+                            <Grid>
+                                <Border Width="1" HorizontalAlignment="Left" Background="{DynamicResource BorderBrush}" />
+                            </Grid>
+                        </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Dot" Property="Stroke" Value="{DynamicResource HoverBorderBrush}" /></Trigger>
-                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Dot" Property="Opacity" Value="0.7" /></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="PreviewSurface" Property="Opacity" Value="0.88" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="PreviewSurface" Property="Opacity" Value="0.72" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -93,7 +103,7 @@
                                 <TextBlock Text="颜色模式" Style="{StaticResource FieldLabel}" Margin="0" />
                                 <TextBlock Text="切换后会同步更新窗口、标题栏和 Logo" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
                             </StackPanel>
-                            <ComboBox x:Name="ThemeComboBox" Grid.Column="1" />
+                            <ComboBox x:Name="ThemeComboBox" Grid.Column="1" SelectionChanged="SettingsSelectionChanged" />
                         </Grid>
                     </Border>
                     <Border Style="{StaticResource CardBorder}" Padding="18" Margin="0,10,0,0">
@@ -104,64 +114,88 @@
                             <Grid Margin="0,0,0,6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="56" />
-                                    <ColumnDefinition Width="128" />
-                                    <ColumnDefinition Width="128" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="1" Text="背景色" Style="{StaticResource SectionLabel}" />
-                                <TextBlock Grid.Column="2" Text="前景色" Style="{StaticResource SectionLabel}" Margin="8,0,0,0" />
-                                <TextBlock Grid.Column="3" Text="预览" Style="{StaticResource SectionLabel}" Margin="8,0,0,0" />
+                                <TextBlock Grid.Column="2" Text="前景色" Style="{StaticResource SectionLabel}" Margin="12,0,0,0" />
                             </Grid>
                             <Grid Margin="0,0,0,9">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="56" />
-                                    <ColumnDefinition Width="128" />
-                                    <ColumnDefinition Width="128" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="浅色" VerticalAlignment="Center" />
-                                <Grid Grid.Column="1">
-                                    <TextBox x:Name="LightBackgroundTextBox" Tag="#RRGGBB" Padding="12,9,42,9" TextChanged="ThemeColorTextChanged" />
-                                    <Button x:Name="LightBackgroundPickerButton" Style="{StaticResource ColorPickerButton}" HorizontalAlignment="Right" Margin="0,0,6,0"
-                                            Click="PickLightBackground_Click" ToolTip="打开颜色选择器" />
-                                </Grid>
-                                <Grid Grid.Column="2" Margin="8,0,0,0">
-                                    <TextBox x:Name="LightForegroundTextBox" Tag="#RRGGBB" Padding="12,9,42,9" TextChanged="ThemeColorTextChanged" />
-                                    <Button x:Name="LightForegroundPickerButton" Style="{StaticResource ColorPickerButton}" HorizontalAlignment="Right" Margin="0,0,6,0"
-                                            Click="PickLightForeground_Click" ToolTip="打开颜色选择器" />
-                                </Grid>
-                                <Border x:Name="LightColorPreview" Grid.Column="3" Height="38" CornerRadius="9" Margin="8,0,0,0"
-                                        BorderBrush="{DynamicResource SoftBorderBrush}" BorderThickness="1">
-                                    <TextBlock x:Name="LightColorPreviewText" Text="示例文字" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Border Grid.Column="1" Height="38" Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="LightBackgroundTextBox" Tag="#RRGGBB" Height="38" MinHeight="38"
+                                                 Margin="0" Padding="12,8" Background="Transparent" BorderThickness="0"
+                                                 TextChanged="ThemeColorTextChanged" />
+                                        <Button x:Name="LightBackgroundPickerButton" Grid.Column="1" Style="{StaticResource ColorPickerButton}"
+                                                Click="PickLightBackground_Click" ToolTip="选择浅色主题背景色"
+                                                AutomationProperties.Name="选择浅色主题背景色" />
+                                    </Grid>
                                 </Border>
-                                <Button Grid.Column="4" Content="恢复" MinWidth="58" Margin="8,2,0,2" Padding="9,5" Click="ResetLightColors_Click" />
+                                <Border Grid.Column="2" Height="38" Margin="12,0,0,0" Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="LightForegroundTextBox" Tag="#RRGGBB" Height="38" MinHeight="38"
+                                                 Margin="0" Padding="12,8" Background="Transparent" BorderThickness="0"
+                                                 TextChanged="ThemeColorTextChanged" />
+                                        <Button x:Name="LightForegroundPickerButton" Grid.Column="1" Style="{StaticResource ColorPickerButton}"
+                                                Click="PickLightForeground_Click" ToolTip="选择浅色主题前景色"
+                                                AutomationProperties.Name="选择浅色主题前景色" />
+                                    </Grid>
+                                </Border>
+                                <Button Grid.Column="3" Style="{StaticResource IconButton}" Width="38" Height="38" Margin="12,0,0,0"
+                                        Click="ResetLightColors_Click" ToolTip="恢复浅色主题默认颜色"
+                                        AutomationProperties.Name="恢复浅色主题默认颜色">
+                                    <mi:MaterialIcon Kind="Restore" Width="17" Height="17" />
+                                </Button>
                             </Grid>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="56" />
-                                    <ColumnDefinition Width="128" />
-                                    <ColumnDefinition Width="128" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="深色" VerticalAlignment="Center" />
-                                <Grid Grid.Column="1">
-                                    <TextBox x:Name="DarkBackgroundTextBox" Tag="#RRGGBB" Padding="12,9,42,9" TextChanged="ThemeColorTextChanged" />
-                                    <Button x:Name="DarkBackgroundPickerButton" Style="{StaticResource ColorPickerButton}" HorizontalAlignment="Right" Margin="0,0,6,0"
-                                            Click="PickDarkBackground_Click" ToolTip="打开颜色选择器" />
-                                </Grid>
-                                <Grid Grid.Column="2" Margin="8,0,0,0">
-                                    <TextBox x:Name="DarkForegroundTextBox" Tag="#RRGGBB" Padding="12,9,42,9" TextChanged="ThemeColorTextChanged" />
-                                    <Button x:Name="DarkForegroundPickerButton" Style="{StaticResource ColorPickerButton}" HorizontalAlignment="Right" Margin="0,0,6,0"
-                                            Click="PickDarkForeground_Click" ToolTip="打开颜色选择器" />
-                                </Grid>
-                                <Border x:Name="DarkColorPreview" Grid.Column="3" Height="38" CornerRadius="9" Margin="8,0,0,0"
-                                        BorderBrush="{DynamicResource SoftBorderBrush}" BorderThickness="1">
-                                    <TextBlock x:Name="DarkColorPreviewText" Text="示例文字" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Border Grid.Column="1" Height="38" Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="DarkBackgroundTextBox" Tag="#RRGGBB" Height="38" MinHeight="38"
+                                                 Margin="0" Padding="12,8" Background="Transparent" BorderThickness="0"
+                                                 TextChanged="ThemeColorTextChanged" />
+                                        <Button x:Name="DarkBackgroundPickerButton" Grid.Column="1" Style="{StaticResource ColorPickerButton}"
+                                                Click="PickDarkBackground_Click" ToolTip="选择深色主题背景色"
+                                                AutomationProperties.Name="选择深色主题背景色" />
+                                    </Grid>
                                 </Border>
-                                <Button Grid.Column="4" Content="恢复" MinWidth="58" Margin="8,2,0,2" Padding="9,5" Click="ResetDarkColors_Click" />
+                                <Border Grid.Column="2" Height="38" Margin="12,0,0,0" Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="DarkForegroundTextBox" Tag="#RRGGBB" Height="38" MinHeight="38"
+                                                 Margin="0" Padding="12,8" Background="Transparent" BorderThickness="0"
+                                                 TextChanged="ThemeColorTextChanged" />
+                                        <Button x:Name="DarkForegroundPickerButton" Grid.Column="1" Style="{StaticResource ColorPickerButton}"
+                                                Click="PickDarkForeground_Click" ToolTip="选择深色主题前景色"
+                                                AutomationProperties.Name="选择深色主题前景色" />
+                                    </Grid>
+                                </Border>
+                                <Button Grid.Column="3" Style="{StaticResource IconButton}" Width="38" Height="38" Margin="12,0,0,0"
+                                        Click="ResetDarkColors_Click" ToolTip="恢复深色主题默认颜色"
+                                        AutomationProperties.Name="恢复深色主题默认颜色">
+                                    <mi:MaterialIcon Kind="Restore" Width="17" Height="17" />
+                                </Button>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -177,7 +211,7 @@
                                 <TextBlock Text="关闭窗口时" Style="{StaticResource FieldLabel}" Margin="0" />
                                 <TextBlock Text="完全退出会停止所有正在运行的命令" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
                             </StackPanel>
-                            <ComboBox x:Name="CloseBehaviorComboBox" Grid.Column="1" />
+                            <ComboBox x:Name="CloseBehaviorComboBox" Grid.Column="1" SelectionChanged="SettingsSelectionChanged" />
                         </Grid>
                     </Border>
 
@@ -192,7 +226,7 @@
                                 <TextBlock Text="界面保留行数" Style="{StaticResource FieldLabel}" Margin="0" />
                                 <TextBlock Text="仅显示最新日志，较小的行数占用更少资源" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
                             </StackPanel>
-                            <ComboBox x:Name="LogVisibleLineCountComboBox" Grid.Column="1" />
+                            <ComboBox x:Name="LogVisibleLineCountComboBox" Grid.Column="1" SelectionChanged="SettingsSelectionChanged" />
                         </Grid>
                     </Border>
 

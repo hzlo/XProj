@@ -12,20 +12,25 @@ public partial class SettingsDialog : Window
     private readonly Func<string, Task> _exportConfiguration;
     private readonly Func<string, Task<AppSettings>> _importConfiguration;
     private readonly Func<Window, Task> _checkForUpdates;
+    private readonly Action<AppSettings> _previewSettings;
     private readonly List<FontFamily> _fonts;
     private AppSettings _settings;
+    private bool _isInitializing;
 
     public SettingsDialog(
         AppSettings settings,
         Func<string, Task> exportConfiguration,
         Func<string, Task<AppSettings>> importConfiguration,
+        Action<AppSettings> previewSettings,
         string currentVersion,
         Func<Window, Task> checkForUpdates)
     {
         InitializeComponent();
+        _isInitializing = true;
         _settings = settings.Clone();
         _exportConfiguration = exportConfiguration;
         _importConfiguration = importConfiguration;
+        _previewSettings = previewSettings;
         _checkForUpdates = checkForUpdates;
         _fonts = Fonts.SystemFontFamilies.OrderBy(font => font.Source, StringComparer.CurrentCultureIgnoreCase).ToList();
 
@@ -38,6 +43,7 @@ public partial class SettingsDialog : Window
         LogVisibleLineCountComboBox.ItemsSource = new[] { 100, 300, 500, 1000 };
         CurrentVersionText.Text = $"当前版本 v{currentVersion}";
         ApplySettingsToControls(_settings);
+        _isInitializing = false;
     }
 
     public AppSettings? Result { get; private set; }
@@ -60,20 +66,16 @@ public partial class SettingsDialog : Window
         UpdatePreviews();
     }
 
-    private void ThemeColorTextChanged(object sender, TextChangedEventArgs e) => UpdateThemeColorPreviews();
-
-    private void UpdateThemeColorPreviews()
+    private void ThemeColorTextChanged(object sender, TextChangedEventArgs e)
     {
-        UpdateThemeColorPreview(
-            LightForegroundTextBox?.Text,
-            LightBackgroundTextBox?.Text,
-            LightColorPreview,
-            LightColorPreviewText);
-        UpdateThemeColorPreview(
-            DarkForegroundTextBox?.Text,
-            DarkBackgroundTextBox?.Text,
-            DarkColorPreview,
-            DarkColorPreviewText);
+        UpdateThemeColorPickers();
+        PreviewSettings();
+    }
+
+    private void SettingsSelectionChanged(object sender, SelectionChangedEventArgs e) => PreviewSettings();
+
+    private void UpdateThemeColorPickers()
+    {
         UpdatePickerButton(LightBackgroundPickerButton, LightBackgroundTextBox?.Text);
         UpdatePickerButton(LightForegroundPickerButton, LightForegroundTextBox?.Text);
         UpdatePickerButton(DarkBackgroundPickerButton, DarkBackgroundTextBox?.Text);
@@ -106,24 +108,6 @@ public partial class SettingsDialog : Window
         }
     }
 
-    private static void UpdateThemeColorPreview(
-        string? foregroundText,
-        string? backgroundText,
-        Border? preview,
-        TextBlock? previewText)
-    {
-        if (preview is null || previewText is null ||
-            !ThemeManager.TryNormalizeColor(foregroundText, out var foreground) ||
-            !ThemeManager.TryNormalizeColor(backgroundText, out var background))
-        {
-            return;
-        }
-
-        preview.Background = CreateColorBrush(background);
-        previewText.Foreground = CreateColorBrush(foreground);
-        previewText.Text = ThemeManager.HasReadableContrast(foreground, background) ? "示例文字" : "对比度不足";
-    }
-
     private static SolidColorBrush CreateColorBrush(string color) =>
         new((Color)ColorConverter.ConvertFromString(color));
 
@@ -142,7 +126,21 @@ public partial class SettingsDialog : Window
     private FontFamily FindFont(string source) =>
         _fonts.FirstOrDefault(font => font.Source.Equals(source, StringComparison.OrdinalIgnoreCase)) ?? _fonts.First();
 
-    private void FontSelectionChanged(object sender, RoutedEventArgs e) => UpdatePreviews();
+    private void FontSelectionChanged(object sender, RoutedEventArgs e)
+    {
+        UpdatePreviews();
+        PreviewSettings();
+    }
+
+    private void PreviewSettings()
+    {
+        if (_isInitializing || !TryBuildSettings(validateContrast: false, out var candidate))
+        {
+            return;
+        }
+
+        _previewSettings(candidate);
+    }
 
     private void UpdatePreviews()
     {
@@ -209,7 +207,16 @@ public partial class SettingsDialog : Window
         await RunFileOperationAsync(async () =>
         {
             _settings = await _importConfiguration(dialog.FileName);
-            ApplySettingsToControls(_settings);
+            _isInitializing = true;
+            try
+            {
+                ApplySettingsToControls(_settings);
+            }
+            finally
+            {
+                _isInitializing = false;
+            }
+            PreviewSettings();
         }, "配置已导入并应用");
     }
 
@@ -230,9 +237,26 @@ public partial class SettingsDialog : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        if (!TryGetThemeColors(out var lightForeground, out var lightBackground, out var darkForeground, out var darkBackground))
+        if (!TryBuildSettings(validateContrast: true, out var settings))
         {
             return;
+        }
+
+        Result = settings;
+        DialogResult = true;
+    }
+
+    private bool TryBuildSettings(bool validateContrast, out AppSettings settings)
+    {
+        settings = null!;
+        if (!TryGetThemeColors(
+                validateContrast,
+                out var lightForeground,
+                out var lightBackground,
+                out var darkForeground,
+                out var darkBackground))
+        {
+            return false;
         }
 
         if (ThemeComboBox.SelectedIndex < 0 || CloseBehaviorComboBox.SelectedIndex < 0 ||
@@ -240,11 +264,14 @@ public partial class SettingsDialog : Window
             LogFontComboBox.SelectedItem is not FontFamily logFont || LogFontSizeComboBox.SelectedItem is not double logFontSize ||
             LogVisibleLineCountComboBox.SelectedItem is not int logVisibleLineCount)
         {
-            ValidationText.Text = "请完成外观和字体设置。";
-            return;
+            if (validateContrast)
+            {
+                ValidationText.Text = "请完成外观和字体设置。";
+            }
+            return false;
         }
 
-        Result = new AppSettings
+        settings = new AppSettings
         {
             Theme = ThemeComboBox.SelectedIndex == 1 ? "Light" : "Dark",
             LightForegroundColor = lightForeground,
@@ -260,10 +287,15 @@ public partial class SettingsDialog : Window
             LogFontItalic = LogItalicToggle.IsChecked == true,
             LogVisibleLineCount = logVisibleLineCount
         };
-        DialogResult = true;
+        if (validateContrast)
+        {
+            ValidationText.Text = string.Empty;
+        }
+        return true;
     }
 
     private bool TryGetThemeColors(
+        bool showValidation,
         out string lightForeground,
         out string lightBackground,
         out string darkForeground,
@@ -278,14 +310,20 @@ public partial class SettingsDialog : Window
             !ThemeManager.TryNormalizeColor(DarkForegroundTextBox.Text, out darkForeground) ||
             !ThemeManager.TryNormalizeColor(DarkBackgroundTextBox.Text, out darkBackground))
         {
-            ValidationText.Text = "主题颜色请使用 #RRGGBB 格式。";
+            if (showValidation)
+            {
+                ValidationText.Text = "主题颜色请使用 #RRGGBB 格式。";
+            }
             return false;
         }
 
         if (!ThemeManager.HasReadableContrast(lightForeground, lightBackground) ||
             !ThemeManager.HasReadableContrast(darkForeground, darkBackground))
         {
-            ValidationText.Text = "前景色与背景色对比度不足，请调整后再保存。";
+            if (showValidation)
+            {
+                ValidationText.Text = "前景色与背景色对比度不足，请调整后再保存。";
+            }
             return false;
         }
 

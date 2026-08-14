@@ -214,6 +214,29 @@ if (persistedJson.Contains("\"description\"", StringComparison.OrdinalIgnoreCase
     throw new InvalidOperationException("Removed project description field was persisted.");
 }
 
+var legacyJson = System.Text.Json.Nodes.JsonNode.Parse(persistedJson)?.AsObject()
+    ?? throw new InvalidOperationException("Persisted configuration could not be parsed for legacy field testing.");
+var legacyProject = legacyJson["projects"]?.AsArray().SingleOrDefault()?.AsObject()
+    ?? throw new InvalidOperationException("Persisted project was missing for legacy field testing.");
+legacyProject["isFavorite"] = true;
+legacyProject["lastUsedAt"] = "2026-08-14T12:00:00+08:00";
+var legacyImportPath = Path.Combine(persistenceDirectory, "legacy-config.json");
+await File.WriteAllTextAsync(legacyImportPath, legacyJson.ToJsonString());
+var legacyImportedData = await dataStore.ImportAsync(legacyImportPath);
+if (legacyImportedData.Projects.Single().Name != "Persisted project")
+{
+    throw new InvalidOperationException("Legacy project fields prevented configuration import.");
+}
+
+var legacyExportPath = Path.Combine(persistenceDirectory, "legacy-exported-config.json");
+await dataStore.ExportAsync(legacyImportedData, legacyExportPath);
+var legacyExportedJson = await File.ReadAllTextAsync(legacyExportPath);
+if (legacyExportedJson.Contains("\"isFavorite\"", StringComparison.OrdinalIgnoreCase) ||
+    legacyExportedJson.Contains("\"lastUsedAt\"", StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException("Removed recent or favorite project fields were persisted after legacy import.");
+}
+
 var loadedData = await dataStore.LoadAsync();
 if (loadedData.Groups.Count != 2 ||
     loadedData.Projects.Single().GroupId != childGroup.Id ||
