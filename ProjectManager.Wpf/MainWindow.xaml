@@ -872,10 +872,15 @@
 
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" ClipToBounds="True">
                             <Grid>
-                                <Grid.RowDefinitions><RowDefinition Height="48" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                                <Grid Margin="16,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="48" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="52" />
+                                </Grid.RowDefinitions>
+                                <Grid Grid.Row="0" Margin="16,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="178" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
@@ -885,7 +890,7 @@
                                             <TextBlock Text="{Binding SelectedCommand.Name, TargetNullValue=未选择命令}" Foreground="{DynamicResource AccentBrush}" FontSize="10" />
                                         </Border>
                                     </StackPanel>
-                                    <Grid Grid.Column="1" Width="178" Height="38" Margin="14,0,0,0" HorizontalAlignment="Left">
+                                    <Grid Grid.Column="1" Height="38" Margin="14,0,0,0">
                                         <TextBox Height="38"
                                                  Padding="28,9,8,9"
                                                  Background="{DynamicResource InsetPanelBrush}"
@@ -897,7 +902,7 @@
                                                          Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
                                                          IsHitTestVisible="False" />
                                     </Grid>
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button Style="{StaticResource ActionChip}" Foreground="{DynamicResource WarningBrush}" ToolTip="停止命令"
                                                 IsEnabled="{Binding SelectedCommand.CanStop, FallbackValue=False, TargetNullValue=False}" Click="StopCommand_Click">
                                             <mi:MaterialIcon Kind="StopCircleOutline" Width="16" Height="16" />
@@ -912,13 +917,54 @@
                                         </Button>
                                     </StackPanel>
                                 </Grid>
-                                <TextBox x:Name="LogTextBox" Grid.Row="1"
-                                         IsReadOnly="True" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+                                <ListBox x:Name="LogListBox" Grid.Row="1"
+                                         ItemsSource="{Binding DisplayedLogLines}"
+                                         SelectionMode="Extended"
                                          FontFamily="{Binding LogFontFamily}" FontSize="{Binding LogFontSize}"
                                          FontWeight="{Binding LogFontWeight}" FontStyle="{Binding LogFontStyle}"
                                          Foreground="{DynamicResource LogTextBrush}" Background="{DynamicResource LogBackgroundBrush}"
-                                         BorderThickness="0,1,0,0" Padding="16,13" VerticalContentAlignment="Top"
-                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+                                         BorderThickness="0,1,0,0" Padding="16,13"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         PreviewKeyDown="LogListBox_PreviewKeyDown">
+                                    <ListBox.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="复制所选行" Click="CopySelectedLogLines_Click" />
+                                            <MenuItem Header="复制全部日志" Click="CopyAllLogLines_Click" />
+                                        </ContextMenu>
+                                    </ListBox.ContextMenu>
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                            <Setter Property="Padding" Value="0" />
+                                            <Setter Property="Margin" Value="0" />
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Text}" TextWrapping="NoWrap" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <Grid Grid.Row="2" Margin="16,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="CommandInputTextBox" Grid.Column="0" Height="38"
+                                             Padding="10,9" Tag="向运行中的命令发送输入"
+                                             IsEnabled="{Binding SelectedCommand.IsRunning, FallbackValue=False, TargetNullValue=False}"
+                                             KeyDown="CommandInputTextBox_KeyDown" />
+                                    <Button Grid.Column="1" Style="{StaticResource ActionChip}" Margin="8,0,0,0"
+                                            ToolTip="发送输入" IsEnabled="{Binding SelectedCommand.IsRunning, FallbackValue=False, TargetNullValue=False}"
+                                            Click="SendCommandInput_Click">
+                                        <mi:MaterialIcon Kind="Send" Width="16" Height="16" />
+                                    </Button>
+                                </Grid>
                             </Grid>
                         </Border>
                     </Grid>

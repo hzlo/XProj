@@ -24,8 +24,10 @@ public sealed class MainViewModel : ObservableObject
     private readonly SystemLauncher _systemLauncher;
     private readonly Dictionary<Guid, RollingLogBuffer> _logs = new();
     private readonly ConcurrentDictionary<Guid, int> _logGenerations = new();
+    private readonly ConcurrentDictionary<Guid, byte> _expectedProcessStops = new();
     private readonly ConcurrentQueue<PendingProcessOutput> _pendingOutput = new();
-    private RollingLineBuffer _displayedLog = new(300, 76_800, 61_440);
+    private readonly AsyncLogFileWriter _logFileWriter;
+    private LogLineBuffer _displayedLog = new(300);
     private AppData _data = new();
     private AppSettings? _previewLogSettings;
     private GroupTreeItem? _selectedGroup;
@@ -46,17 +48,20 @@ public sealed class MainViewModel : ObservableObject
         _dataStore = dataStore;
         _processManager = processManager;
         _systemLauncher = systemLauncher;
+        _logFileWriter = new AsyncLogFileWriter(Path.Combine(dataStore.DataDirectory, "logs"));
         _processManager.OutputReceived += ProcessManagerOnOutputReceived;
         _processManager.ProcessExited += ProcessManagerOnProcessExited;
     }
 
     public event EventHandler<LogDisplayUpdateEventArgs>? LogDisplayUpdated;
+    public event EventHandler<AbnormalProcessExitEventArgs>? AbnormalProcessExited;
 
     public ObservableCollection<GroupTreeItem> GroupItems { get; } = new();
     public ObservableCollection<ManagedProject> Projects { get; } = new();
     public ObservableCollection<CommandRuntimeViewModel> Commands { get; } = new();
     public ObservableCollection<RunningCommandSummary> RunningCommands { get; } = new();
     public ObservableCollection<RunPlan> RunPlans { get; } = new();
+    public ObservableCollection<LogLine> DisplayedLogLines { get; } = new();
 
     public GroupTreeItem? SelectedGroup
     {
@@ -352,6 +357,7 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task StopCommandAsync(CommandRuntimeViewModel commandRuntime)
     {
+        _expectedProcessStops[commandRuntime.Command.Id] = 0;
         commandRuntime.SetRunning(true, "停止中");
         await _processManager.StopAsync(commandRuntime.Command.Id);
         commandRuntime.SetRunning(false, "已停止");
@@ -360,6 +366,11 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task StopAllCommandsAsync()
     {
+        foreach (var commandId in _processManager.RunningCommandIds)
+        {
+            _expectedProcessStops[commandId] = 0;
+        }
+
         if (RunningCount == 0)
         {
             return;
@@ -378,6 +389,7 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task RestartCommandAsync(CommandRuntimeViewModel commandRuntime)
     {
+        _expectedProcessStops[commandRuntime.Command.Id] = 0;
         await _processManager.StopAsync(commandRuntime.Command.Id);
         commandRuntime.SetRunning(false, "正在重启");
         await RunCommandAsync(commandRuntime);
@@ -686,10 +698,27 @@ public sealed class MainViewModel : ObservableObject
         _systemLauncher.OpenInEditor(project.WorkingDirectory);
     }
 
+    public async Task SendInputAsync(string text)
+    {
+        if (SelectedCommand is not { IsRunning: true } command || string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        await _processManager.SendInputAsync(command.Command.Id, text);
+    }
+
     public async Task ShutdownAsync()
     {
+        foreach (var commandId in _processManager.RunningCommandIds)
+        {
+            _expectedProcessStops[commandId] = 0;
+        }
+
         StatusText = "正在停止运行中的命令...";
         await _processManager.StopAllAsync();
+        FlushPendingOutput();
+        await _logFileWriter.DisposeAsync();
         await _dataStore.SaveAsync(_data);
     }
 
@@ -1190,7 +1219,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         _displayedLog = CreateDisplayedLogBuffer();
-        ReplaceDisplayedLog(string.Empty);
+        ReplaceDisplayedLog(Array.Empty<string>());
     }
 
     private int GetLogGeneration(Guid commandId) =>
@@ -1240,6 +1269,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void ProcessManagerOnProcessExited(object? sender, ProcessExitedEventArgs eventArgs)
     {
+        var wasExpectedStop = _expectedProcessStops.TryRemove(eventArgs.CommandId, out _);
         var generation = GetLogGeneration(eventArgs.CommandId);
         _pendingOutput.Enqueue(new PendingProcessOutput(
             new ProcessOutputEventArgs(
@@ -1260,6 +1290,18 @@ public sealed class MainViewModel : ObservableObject
             if (generation != GetLogGeneration(eventArgs.CommandId))
             {
                 return;
+            }
+
+            if (!wasExpectedStop && eventArgs.ExitCode != 0)
+            {
+                var exitedRuntime = Commands.FirstOrDefault(item => item.Command.Id == eventArgs.CommandId);
+                if (exitedRuntime is not null)
+                {
+                    AbnormalProcessExited?.Invoke(this, new AbnormalProcessExitEventArgs(
+                        eventArgs.CommandId,
+                        exitedRuntime.Command.Name,
+                        eventArgs.ExitCode));
+                }
             }
 
             var runtime = Commands.FirstOrDefault(item => item.Command.Id == eventArgs.CommandId);
@@ -1357,13 +1399,14 @@ public sealed class MainViewModel : ObservableObject
         }
 
         log.Append(text);
+        _logFileWriter.Enqueue(commandId, text);
         if (refreshSelectedLog && SelectedCommand?.Command.Id == commandId)
         {
             var change = _displayedLog.Append(text);
             LogDisplayUpdated?.Invoke(this, new LogDisplayUpdateEventArgs(
                 null,
-                change.CharactersToRemove,
-                change.TextToAppend));
+                change.RemovedLineCount,
+                change.AddedLines));
         }
     }
 
@@ -1378,7 +1421,7 @@ public sealed class MainViewModel : ObservableObject
         text = FilterLogText(text);
         _displayedLog = CreateDisplayedLogBuffer();
         _displayedLog.Append(text);
-        ReplaceDisplayedLog(_displayedLog.ToString());
+        ReplaceDisplayedLog(_displayedLog.Snapshot());
     }
 
     private string FilterLogText(string text)
@@ -1396,19 +1439,11 @@ public sealed class MainViewModel : ObservableObject
                 .Where(line => search.Length == 0 || line.Contains(search, StringComparison.OrdinalIgnoreCase)));
     }
 
-    private void ReplaceDisplayedLog(string text) =>
-        LogDisplayUpdated?.Invoke(this, new LogDisplayUpdateEventArgs(text, 0, string.Empty));
+    private void ReplaceDisplayedLog(IReadOnlyList<string> lines) =>
+        LogDisplayUpdated?.Invoke(this, new LogDisplayUpdateEventArgs(lines, 0, Array.Empty<string>()));
 
-    private RollingLineBuffer CreateDisplayedLogBuffer()
-    {
-        var maximumCharacters = Math.Max(
-            MinimumDisplayedLogCharacters,
-            ActiveLogVisibleLineCount * DisplayedCharactersPerLine);
-        return new RollingLineBuffer(
-            ActiveLogVisibleLineCount,
-            maximumCharacters,
-            maximumCharacters * 4 / 5);
-    }
+    private LogLineBuffer CreateDisplayedLogBuffer() =>
+        new(ActiveLogVisibleLineCount);
 
     private void UpdateRunningCount()
     {
@@ -1519,10 +1554,12 @@ public sealed class RunPlanCommandChoice : ObservableObject
 
 public sealed record RunPlanCommandChoiceGroupKey(Guid ProjectId, string ProjectDisplayName);
 
+public sealed record AbnormalProcessExitEventArgs(Guid CommandId, string CommandName, int ExitCode);
+
 public sealed record LogDisplayUpdateEventArgs(
-    string? ReplacementText,
-    int CharactersToRemove,
-    string TextToAppend);
+    IReadOnlyList<string>? ReplacementLines,
+    int LinesToRemove,
+    IReadOnlyList<string> LinesToAppend);
 
 internal sealed record PendingProcessOutput(ProcessOutputEventArgs EventArgs, int Generation);
 

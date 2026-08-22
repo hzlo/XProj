@@ -54,6 +54,7 @@ public sealed class ProcessManager : IAsyncDisposable
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = true,
             CreateNoWindow = true
         };
         SystemEnvironment.Refresh(startInfo);
@@ -68,7 +69,8 @@ public sealed class ProcessManager : IAsyncDisposable
             command.Id,
             process,
             DateTime.Now,
-            new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously));
+            new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
+            new SemaphoreSlim(1, 1));
 
         if (!_runningProcesses.TryAdd(command.Id, runningProcess))
         {
@@ -105,6 +107,26 @@ public sealed class ProcessManager : IAsyncDisposable
             _runningProcesses.TryRemove(command.Id, out _);
             process.Dispose();
             throw;
+        }
+    }
+
+    public async Task SendInputAsync(Guid commandId, string text)
+    {
+        if (!_runningProcesses.TryGetValue(commandId, out var runningProcess))
+        {
+            throw new InvalidOperationException("该命令当前未运行。");
+        }
+
+        await runningProcess.InputLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var input = text.ReplaceLineEndings("\n").TrimEnd('\n') + "\n";
+            await runningProcess.Process.StandardInput.WriteAsync(input).ConfigureAwait(false);
+            await runningProcess.Process.StandardInput.FlushAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            runningProcess.InputLock.Release();
         }
     }
 
@@ -310,7 +332,8 @@ public sealed class ProcessManager : IAsyncDisposable
         Guid CommandId,
         Process Process,
         DateTime StartedAt,
-        TaskCompletionSource<int> Completion);
+        TaskCompletionSource<int> Completion,
+        SemaphoreSlim InputLock);
 
 }
 

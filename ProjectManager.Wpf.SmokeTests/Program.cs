@@ -406,9 +406,9 @@ var otherLifecycleRuntime = lifecycleViewModel.Commands.Single(item => item.Comm
 string? latestReplacementText = null;
 lifecycleViewModel.LogDisplayUpdated += (_, eventArgs) =>
 {
-    if (eventArgs.ReplacementText is not null)
+    if (eventArgs.ReplacementLines is not null)
     {
-        latestReplacementText = eventArgs.ReplacementText;
+        latestReplacementText = string.Join(Environment.NewLine, eventArgs.ReplacementLines);
     }
 };
 
@@ -430,6 +430,46 @@ if (latestReplacementText != string.Empty)
 }
 await lifecycleViewModel.StopCommandAsync(lifecycleRuntime);
 await lifecycleViewModel.ShutdownAsync();
+
+var stdinManager = new ProcessManager();
+var stdinOutput = new StringBuilder();
+var stdinExit = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+var stdinCommand = new ProjectCommand
+{
+    Name = "stdin test",
+    CommandText = "set /p XPROJ_STDIN_TEST= & set XPROJ_STDIN_TEST"
+};
+var stdinProject = new ManagedProject
+{
+    Name = "stdin test project",
+    WorkingDirectory = AppContext.BaseDirectory,
+    Commands = new List<ProjectCommand> { stdinCommand }
+};
+stdinManager.OutputReceived += (_, eventArgs) =>
+{
+    if (eventArgs.CommandId == stdinCommand.Id)
+    {
+        lock (stdinOutput)
+        {
+            stdinOutput.Append(eventArgs.Text);
+        }
+    }
+};
+stdinManager.ProcessExited += (_, eventArgs) =>
+{
+    if (eventArgs.CommandId == stdinCommand.Id)
+    {
+        stdinExit.TrySetResult(eventArgs.ExitCode);
+    }
+};
+await stdinManager.StartAsync(stdinProject, stdinCommand);
+await stdinManager.SendInputAsync(stdinCommand.Id, "stdin-value");
+var stdinExitCode = await stdinExit.Task.WaitAsync(TimeSpan.FromSeconds(10));
+await stdinManager.DisposeAsync();
+if (stdinExitCode != 0 || !stdinOutput.ToString().Contains("XPROJ_STDIN_TEST=stdin-value", StringComparison.Ordinal))
+{
+    throw new InvalidOperationException($"Standard input test failed. Exit: {stdinExitCode}; output: {stdinOutput}.");
+}
 
 const int BulkLineCount = 20_000;
 var bulkManager = new ProcessManager();
