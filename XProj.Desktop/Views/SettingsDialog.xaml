@@ -9,10 +9,10 @@
         MinWidth="680"
         MinHeight="620"
         WindowStyle="None"
-        AllowsTransparency="True"
+         AllowsTransparency="False"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="Transparent">
+         Background="{DynamicResource WindowBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="18" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -83,7 +83,7 @@
             </Grid.RowDefinitions>
 
             <Grid Margin="22,0,11,0">
-                <TextBlock Text="设置" FontSize="15" VerticalAlignment="Center" />
+                <TextBlock Text="设置" VerticalAlignment="Center" />
                 <Button HorizontalAlignment="Right" Style="{StaticResource TitleBarButton}"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True" IsCancel="True">
                     <mi:MaterialIcon Kind="Close" Width="14" Height="14" />
@@ -101,7 +101,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="颜色模式" Style="{StaticResource FieldLabel}" Margin="0" />
-                                <TextBlock Text="切换后会同步更新窗口、标题栏和 Logo" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
+                                 <TextBlock Text="切换后会同步更新窗口、标题栏和 Logo" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
                             </StackPanel>
                             <ComboBox x:Name="ThemeComboBox" Grid.Column="1" SelectionChanged="SettingsSelectionChanged" />
                         </Grid>
@@ -110,7 +110,7 @@
                         <StackPanel>
                             <TextBlock Text="主题颜色" Style="{StaticResource FieldLabel}" Margin="0" />
                             <TextBlock Text="输入 #RRGGBB；卡片、输入框和次级文字会自动匹配"
-                                       Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,14" />
+                                       Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,14" />
                             <Grid Margin="0,0,0,6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="56" />
@@ -209,9 +209,24 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="关闭窗口时" Style="{StaticResource FieldLabel}" Margin="0" />
-                                <TextBlock Text="完全退出会停止所有正在运行的命令" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
+                             <TextBlock Text="完全退出会停止所有正在运行的命令" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
                             </StackPanel>
                             <ComboBox x:Name="CloseBehaviorComboBox" Grid.Column="1" SelectionChanged="SettingsSelectionChanged" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="插件" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
+                    <Border Style="{StaticResource CardBorder}" Padding="18">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="启用插件" Style="{StaticResource FieldLabel}" Margin="0" />
+                                 <TextBlock Text="启用后，主界面顶部会显示插件管理和已启用的插件入口" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
+                            </StackPanel>
+                            <ToggleButton x:Name="EnablePluginsToggle" Grid.Column="1" Style="{StaticResource PluginSwitch}" Margin="0" ToolTip="启用或关闭插件" AutomationProperties.Name="启用或关闭插件" />
                         </Grid>
                     </Border>
 
@@ -224,7 +239,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="界面保留行数" Style="{StaticResource FieldLabel}" Margin="0" />
-                                <TextBlock Text="仅显示最新日志，较小的行数占用更少资源" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
+                                 <TextBlock Text="仅显示最新日志，较小的行数占用更少资源" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
                             </StackPanel>
                             <ComboBox x:Name="LogVisibleLineCountComboBox" Grid.Column="1" SelectionChanged="SettingsSelectionChanged" />
                         </Grid>
@@ -251,7 +266,6 @@
                                 <ComboBox x:Name="LogFontSizeComboBox" Grid.Column="1" Margin="10,0,0,0" SelectionChanged="FontSelectionChanged" />
                             </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
-                                <ToggleButton x:Name="LogBoldToggle" Content="粗体" Style="{StaticResource OptionToggle}" Checked="FontSelectionChanged" Unchecked="FontSelectionChanged" />
                                 <ToggleButton x:Name="LogItalicToggle" Content="斜体" Style="{StaticResource OptionToggle}" Checked="FontSelectionChanged" Unchecked="FontSelectionChanged" />
                             </StackPanel>
                             <Border Background="{DynamicResource LogBackgroundBrush}" BorderBrush="{DynamicResource SoftBorderBrush}" BorderThickness="1"
@@ -267,7 +281,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="XProj 更新" Style="{StaticResource FieldLabel}" Margin="0" />
-                                <TextBlock x:Name="CurrentVersionText" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
+                                 <TextBlock x:Name="CurrentVersionText" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
                             </StackPanel>
                             <Button x:Name="CheckUpdatesButton" Grid.Column="1" Content="检查更新" MinWidth="96" Click="CheckUpdates_Click" />
                         </Grid>
@@ -279,7 +293,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="导入或导出全部配置" Style="{StaticResource FieldLabel}" Margin="0" />
-                                <TextBlock Text="包含分组、项目、命令和当前设置" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,5,0,0" />
+                                 <TextBlock Text="包含分组、项目、命令和当前设置" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <Button Content="导入" MinWidth="78" Click="Import_Click" />

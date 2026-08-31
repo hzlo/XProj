@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>XProj.Plugin.Notes</RootNamespace>
+    <AssemblyName>XProj.Plugin.Notes</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XProj.Plugin.Abstractions\XProj.Plugin.Abstractions.csproj" />
+    <PackageReference Include="Markdig" Version="0.41.3" />
+    <PackageReference Include="Material.Icons.WPF" Version="3.0.2" />
+  </ItemGroup>
+
+</Project>

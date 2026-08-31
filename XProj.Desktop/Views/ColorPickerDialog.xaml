@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
         Title="选择颜色" Width="430" Height="600" MinWidth="430" MinHeight="600"
-        WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False" Background="Transparent">
+         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="False" WindowStartupLocation="CenterOwner"
+         ShowInTaskbar="False" Background="{DynamicResource WindowBrush}">
     <Window.Resources>
         <Style x:Key="ColorDotButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Width" Value="27" />
@@ -31,7 +31,7 @@
         <Grid>
             <Grid.RowDefinitions><RowDefinition Height="34" /><RowDefinition Height="230" /><RowDefinition Height="34" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
             <Grid>
-                <TextBlock Text="选择颜色" FontSize="15" VerticalAlignment="Center" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
+                 <TextBlock Text="选择颜色" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
                 <Button HorizontalAlignment="Right" Style="{StaticResource TitleBarButton}" Click="Cancel_Click">
                     <mi:MaterialIcon Kind="Close" Width="14" Height="14" />
                 </Button>
@@ -56,8 +56,8 @@
             </Grid>
             <Grid Grid.Row="3" Margin="0,20,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                <Border Background="{DynamicResource InsetPanelBrush}" CornerRadius="10" Height="58" Margin="0,0,6,0"><StackPanel VerticalAlignment="Center"><TextBlock Text="HEX" Style="{StaticResource SectionLabel}" HorizontalAlignment="Center" /><TextBlock x:Name="HexValueText" Text="#000000" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,3,0,0" /></StackPanel></Border>
-                <Border Grid.Column="1" Background="{DynamicResource InsetPanelBrush}" CornerRadius="10" Margin="3,0"><StackPanel VerticalAlignment="Center"><TextBlock Text="RGB" Style="{StaticResource SectionLabel}" HorizontalAlignment="Center" /><TextBlock x:Name="RgbValueText" Text="0, 0, 0" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,3,0,0" /></StackPanel></Border>
+                 <Border Background="{DynamicResource InsetPanelBrush}" CornerRadius="10" Height="58" Margin="0,0,6,0"><StackPanel VerticalAlignment="Center"><TextBlock Text="HEX" Style="{StaticResource SectionLabel}" HorizontalAlignment="Center" /><TextBlock x:Name="HexValueText" Text="#000000" HorizontalAlignment="Center" Margin="0,3,0,0" /></StackPanel></Border>
+                 <Border Grid.Column="1" Background="{DynamicResource InsetPanelBrush}" CornerRadius="10" Margin="3,0"><StackPanel VerticalAlignment="Center"><TextBlock Text="RGB" Style="{StaticResource SectionLabel}" HorizontalAlignment="Center" /><TextBlock x:Name="RgbValueText" Text="0, 0, 0" HorizontalAlignment="Center" Margin="0,3,0,0" /></StackPanel></Border>
                 <Border Grid.Column="2" Background="{DynamicResource InsetPanelBrush}" CornerRadius="10" Margin="6,0,0,0"><StackPanel VerticalAlignment="Center"><TextBlock Text="预览" Style="{StaticResource SectionLabel}" HorizontalAlignment="Center" /><Ellipse x:Name="ColorPreview" Width="22" Height="22" HorizontalAlignment="Center" Margin="0,4,0,0" /></StackPanel></Border>
             </Grid>
             <Grid Grid.Row="4" Margin="0,16,0,0">

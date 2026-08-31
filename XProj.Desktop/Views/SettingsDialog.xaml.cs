@@ -60,9 +60,9 @@ public partial class SettingsDialog : Window
         UiFontSizeComboBox.SelectedItem = Math.Round(settings.UiFontSize);
         LogFontComboBox.SelectedItem = FindFont(settings.LogFontFamily);
         LogFontSizeComboBox.SelectedItem = Math.Round(settings.LogFontSize);
-        LogBoldToggle.IsChecked = settings.LogFontBold;
         LogItalicToggle.IsChecked = settings.LogFontItalic;
         LogVisibleLineCountComboBox.SelectedItem = settings.LogVisibleLineCount;
+        EnablePluginsToggle.IsChecked = settings.EnablePlugins;
         UpdatePreviews();
     }
 
@@ -154,7 +154,6 @@ public partial class SettingsDialog : Window
         {
             LogFontPreview.FontFamily = logFont;
             LogFontPreview.FontSize = LogFontSizeComboBox.SelectedItem as double? ?? 11;
-            LogFontPreview.FontWeight = LogBoldToggle.IsChecked == true ? FontWeights.Bold : FontWeights.Normal;
             LogFontPreview.FontStyle = LogItalicToggle.IsChecked == true ? FontStyles.Italic : FontStyles.Normal;
         }
     }
@@ -283,9 +282,11 @@ public partial class SettingsDialog : Window
             UiFontSize = uiFontSize,
             LogFontFamily = logFont.Source,
             LogFontSize = logFontSize,
-            LogFontBold = LogBoldToggle.IsChecked == true,
+            LogFontBold = false,
             LogFontItalic = LogItalicToggle.IsChecked == true,
-            LogVisibleLineCount = logVisibleLineCount
+            LogVisibleLineCount = logVisibleLineCount,
+            EnablePlugins = EnablePluginsToggle.IsChecked == true,
+            EnableNotes = _settings.EnableNotes
         };
         if (validateContrast)
         {

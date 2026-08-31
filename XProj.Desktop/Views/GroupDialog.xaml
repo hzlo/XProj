@@ -8,10 +8,10 @@
         Height="420"
         ResizeMode="NoResize"
         WindowStyle="None"
-        AllowsTransparency="True"
+         AllowsTransparency="False"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="Transparent">
+         Background="{DynamicResource WindowBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="0" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -35,7 +35,7 @@
             </Grid>
 
             <StackPanel Grid.Row="1" Margin="28,14,28,18">
-                <TextBlock Text="整理工作空间" FontSize="22" />
+                <TextBlock Text="整理工作空间" Style="{StaticResource PageTitle}" />
                 <TextBlock Text="使用清晰的层级让项目始终容易找到。" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
             </StackPanel>
 

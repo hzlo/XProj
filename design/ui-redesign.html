@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XProj UI 重构提案</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --page-bg: #0D0E11;
+    --page-fg: #E8E9EC;
+    --page-muted: #8B8D96;
+    --page-card: #16171B;
+    --page-border: #26272E;
+    --backdrop: #1A1B1E;
+    --sidebar: #1F2024;
+    --panel: #232429;
+    --panel-2: #2A2B31;
+    --border: #36373E;
+    --border-soft: #2C2D34;
+    --text: #EDEDF0;
+    --text-2: #A7A8B2;
+    --muted: #74757E;
+    --accent: #0A84FF;
+    --accent-soft: rgba(10,132,255,.15);
+    --green: #32D74B;
+    --green-soft: rgba(50,215,75,.13);
+    --red: #FF453A;
+    --red-soft: rgba(255,69,58,.13);
+    --yellow: #FFD60A;
+    --yellow-soft: rgba(255,214,10,.10);
+    --orange: #FF9F0A;
+    --orange-soft: rgba(255,159,10,.13);
+    --shadow: 0 24px 70px rgba(0,0,0,.5), 0 4px 16px rgba(0,0,0,.35);
+  }
+  [data-theme="light"] {
+    --page-bg: #E9EAEE;
+    --page-fg: #1D1D1F;
+    --page-muted: #77787E;
+    --page-card: #FFFFFF;
+    --page-border: #DDDEE3;
+    --backdrop: #F1F2F4;
+    --sidebar: #F7F7F9;
+    --panel: #FFFFFF;
+    --panel-2: #F4F5F7;
+    --border: #DFE0E5;
+    --border-soft: #E9EAEE;
+    --text: #1D1D1F;
+    --text-2: #595A60;
+    --muted: #8E8F95;
+    --accent: #0071E3;
+    --accent-soft: rgba(0,113,227,.10);
+    --green: #248A3D;
+    --green-soft: rgba(48,209,88,.14);
+    --red: #D70015;
+    --red-soft: rgba(255,59,48,.10);
+    --yellow: #B25000;
+    --yellow-soft: rgba(255,159,10,.14);
+    --orange: #C93400;
+    --orange-soft: rgba(255,149,0,.13);
+    --shadow: 0 24px 70px rgba(0,0,0,.14), 0 4px 16px rgba(0,0,0,.08);
+  }
+
+  body {
+    background: var(--page-bg);
+    color: var(--page-fg);
+    font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 56px 24px 100px;
+    transition: background .25s, color .25s;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+
+  /* ============ 页面框架 ============ */
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 40px; }
+  .page-head h1 { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+  .page-head p { color: var(--page-muted); margin-top: 6px; font-size: 14px; }
+  .theme-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--page-card); border: 1px solid var(--page-border);
+    color: var(--page-fg); border-radius: 10px; padding: 9px 16px;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+
+  .sec-label {
+    display: flex; align-items: baseline; gap: 12px;
+    margin: 64px 0 18px;
+  }
+  .sec-label .no { font-size: 12px; color: var(--accent); font-weight: 600; letter-spacing: .08em; }
+  .sec-label h2 { font-size: 19px; font-weight: 650; letter-spacing: -.01em; }
+  .sec-label .desc { color: var(--page-muted); font-size: 13px; }
+
+  .i { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.8; fill: none;
+       stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+  /* ============ 窗口 mockup ============ */
+  .win {
+    background: var(--backdrop);
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    color: var(--text);
+  }
+  .titlebar {
+    height: 44px; display: flex; align-items: center; padding: 0 10px 0 14px; gap: 10px;
+    -webkit-app-region: drag;
+  }
+  .logo { width: 22px; height: 22px; border-radius: 7px;
+    background: linear-gradient(135deg, #0A84FF, #5E5CE6); position: relative; flex-shrink: 0; }
+  .logo::after { content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255,255,255,.22), transparent 55%); }
+  .app-name { font-size: 13px; font-weight: 600; letter-spacing: .01em; }
+
+  .cmdk-pill {
+    flex: 1; max-width: 430px; margin: 0 auto; height: 29px;
+    background: var(--panel-2); border: 1px solid var(--border-soft);
+    border-radius: 9px; display: flex; align-items: center; gap: 8px;
+    padding: 0 10px 0 11px; color: var(--muted); font-size: 12px; cursor: text;
+  }
+  .cmdk-pill .i { width: 13px; height: 13px; }
+  kbd {
+    font-family: "Segoe UI", sans-serif; font-size: 10.5px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; color: var(--text-2);
+  }
+  .cmdk-pill kbd { margin-left: auto; }
+  .titlebar-actions { display: flex; align-items: center; gap: 2px; }
+  .tb-btn {
+    width: 34px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-2); cursor: default;
+  }
+  .tb-btn:hover { background: var(--panel-2); color: var(--text); }
+  .tb-btn.close:hover { background: var(--red); color: #fff; }
+  .tb-btn .i { width: 14px; height: 14px; }
+
+  .win-body { display: flex; height: 640px; }
+
+  /* ---- Activity Rail ---- */
+  .rail {
+    width: 52px; background: var(--sidebar); border-right: 1px solid var(--border-soft);
+    display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 6px;
+  }
+  .rail-btn {
+    width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); position: relative; cursor: default;
+  }
+  .rail-btn .i { width: 19px; height: 19px; }
+  .rail-btn:hover { background: var(--panel-2); color: var(--text-2); }
+  .rail-btn.active { background: var(--accent-soft); color: var(--accent); }
+  .rail-badge {
+    position: absolute; top: 3px; right: 3px; min-width: 15px; height: 15px; padding: 0 4px;
+    background: var(--green); color: #fff; font-size: 9.5px; font-weight: 700;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  }
+  .rail-spacer { flex: 1; }
+
+  /* ---- 左树列 ---- */
+  .tree-col { width: 264px; border-right: 1px solid var(--border-soft); display: flex; flex-direction: column; padding: 12px 10px; gap: 10px; }
+  .col-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px; }
+  .col-head .t { font-size: 11px; font-weight: 650; color: var(--muted); letter-spacing: .05em; }
+  .icon-btn {
+    width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+  }
+  .icon-btn:hover { background: var(--panel-2); color: var(--text); }
+  .icon-btn .i { width: 14px; height: 14px; }
+
+  .searchbox {
+    height: 32px; background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: 9px;
+    display: flex; align-items: center; gap: 7px; padding: 0 10px; color: var(--muted); font-size: 12px;
+  }
+  .searchbox .i { width: 13px; height: 13px; }
+
+  .tree { flex: 1; overflow: hidden; font-size: 12.5px; }
+  .trow { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 6px; border-radius: 8px; color: var(--text-2); }
+  .trow:hover { background: var(--panel-2); }
+  .trow.sel { background: var(--accent-soft); color: var(--text); }
+  .trow.sel .i { color: var(--accent); }
+  .trow .i { width: 15px; height: 15px; color: var(--muted); }
+  .trow .chev { width: 12px; height: 12px; }
+  .trow .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trow .cnt { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+  .trow.lvl2 { padding-left: 22px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot.run { background: var(--green); animation: pulse 2s infinite; }
+  .dot.err { background: var(--red); }
+  .dot.off { background: var(--border); }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 var(--green-soft); }
+    70% { box-shadow: 0 0 0 5px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  .divider { height: 1px; background: var(--border-soft); margin: 4px 2px; }
+  .plan-item {
+    display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--border-soft); margin-bottom: 7px;
+  }
+  .plan-item:hover { border-color: var(--border); }
+  .plan-ic { width: 27px; height: 27px; border-radius: 8px; background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; }
+  .plan-ic .i { width: 14px; height: 14px; }
+  .plan-meta { flex: 1; min-width: 0; }
+  .plan-meta .n { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .plan-meta .s { font-size: 10.5px; color: var(--muted); }
+  .plan-go { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; }
+  .plan-go .i { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+
+  /* ---- 详情列 ---- */
+  .detail { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 14px 16px 12px; gap: 12px; }
+  .proj-head { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+    background: linear-gradient(135deg, #0A84FF, #64D2FF);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 16px;
+  }
+  .proj-meta { flex: 1; min-width: 0; }
+  .proj-meta .n { font-size: 18px; font-weight: 700; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+  .proj-meta .path { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 6px; letter-spacing: .02em;
+  }
+  .chip.run { background: var(--green-soft); color: var(--green); }
+  .chip.dim { background: var(--panel-2); color: var(--muted); }
+  .head-actions { display: flex; gap: 4px; }
+  .act-btn {
+    width: 30px; height: 30px; border-radius: 9px; background: var(--panel); border: 1px solid var(--border-soft);
+    display: flex; align-items: center; justify-content: center; color: var(--text-2);
+  }
+  .act-btn:hover { background: var(--panel-2); color: var(--text); }
+  .act-btn.danger:hover { color: var(--red); border-color: var(--red); }
+  .act-btn .i { width: 14px; height: 14px; }
+
+  .cmd-row { display: flex; gap: 10px; }
+  .cmd-card {
+    flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--border-soft);
+    border-radius: 12px; padding: 11px 13px; display: flex; flex-direction: column; gap: 5px;
+  }
+  .cmd-card:hover { border-color: var(--border); }
+  .cmd-card.running { background: var(--green-soft); border-color: transparent; }
+  .cmd-card.failed { background: var(--red-soft); border-color: transparent; }
+  .cmd-top { display: flex; align-items: center; gap: 7px; }
+  .cmd-top .nm { font-size: 12.5px; font-weight: 650; }
+  .cmd-top .dur { margin-left: auto; font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+  .cmd-top .dur .i { width: 11px; height: 11px; }
+  .cmd-card.running .dur { color: var(--green); }
+  .cmd-card.failed .dur { color: var(--red); }
+  .cmd-snippet { font-family: Consolas, "Cascadia Mono", monospace; font-size: 10.5px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cmd-toggle { display: flex; align-items: center; gap: 6px; }
+  .run-btn {
+    height: 25px; padding: 0 11px; border-radius: 8px; font-size: 11px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--accent); color: #fff;
+  }
+  .run-btn.stop { background: transparent; color: var(--green); border: 1px solid var(--green); }
+  .run-btn.retry { background: transparent; color: var(--red); border: 1px solid var(--red); }
+  .run-btn .i { width: 11px; height: 11px; }
+  .run-btn .i.fill { fill: currentColor; stroke: none; }
+
+  /* ---- 日志面板 ---- */
+  .log-panel {
+    flex: 1; min-height: 0; background: var(--panel); border: 1px solid var(--border-soft);
+    border-radius: 13px; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .log-tabs { display: flex; align-items: center; gap: 4px; padding: 8px 10px 0; border-bottom: 1px solid var(--border-soft); }
+  .ltab {
+    display: flex; align-items: center; gap: 7px; height: 31px; padding: 0 12px;
+    border-radius: 9px 9px 0 0; font-size: 12px; color: var(--muted); position: relative;
+  }
+  .ltab:hover { background: var(--panel-2); color: var(--text-2); }
+  .ltab.on { color: var(--text); font-weight: 600; }
+  .ltab.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px; }
+  .ltab .i { width: 12px; height: 12px; }
+  .ltab .ok { color: var(--green); }
+  .ltab .tool { margin-left: auto; display: flex; align-items: center; gap: 3px; padding-left: 8px; }
+  .tool-btn {
+    width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--muted);
+  }
+  .tool-btn:hover { background: var(--panel-2); color: var(--text); }
+  .tool-btn.warn:hover { color: var(--orange); }
+  .tool-btn.stop:hover { color: var(--red); }
+  .tool-btn .i { width: 13px; height: 13px; }
+  .log-search {
+    margin-left: auto; margin-right: 6px; margin-bottom: 6px;
+    width: 168px; height: 27px; background: var(--panel-2); border: 1px solid var(--border-soft);
+    border-radius: 8px; display: flex; align-items: center; gap: 6px; padding: 0 9px; color: var(--muted); font-size: 11.5px;
+  }
+  .log-search .i { width: 12px; height: 12px; }
+
+  .log-body {
+    flex: 1; overflow: hidden; background: var(--backdrop);
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 11.5px; line-height: 1.75;
+    padding: 10px 16px;
+  }
+  .ln { white-space: pre; color: var(--text-2); }
+  .ln .ts { color: var(--muted); }
+  .lv { font-weight: 600; }
+  .lv.inf { color: var(--accent); }
+  .lv.wrn { color: var(--orange); }
+  .lv.err { color: var(--red); }
+  .ln.hl { background: var(--yellow-soft); display: inline-block; width: 100%; }
+
+  .stdin-row { display: flex; gap: 8px; padding: 9px 10px; border-top: 1px solid var(--border-soft); }
+  .stdin {
+    flex: 1; height: 32px; background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: 9px;
+    display: flex; align-items: center; gap: 8px; padding: 0 11px; color: var(--muted); font-size: 12px;
+  }
+  .send-btn {
+    width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .send-btn .i { width: 14px; height: 14px; }
+
+  /* ---- 状态栏 ---- */
+  .statusbar {
+    height: 30px; border-top: 1px solid var(--border-soft); display: flex; align-items: center;
+    padding: 0 14px; gap: 16px; font-size: 11px; color: var(--muted);
+  }
+  .st-ok { display: flex; align-items: center; gap: 6px; color: var(--text-2); }
+  .st-ok .i { width: 12px; height: 12px; color: var(--green); }
+  .st-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .st-run { display: flex; align-items: center; gap: 6px; }
+  .st-upd { color: var(--accent); display: flex; align-items: center; gap: 5px; font-weight: 600; }
+  .st-upd .i { width: 12px; height: 12px; }
+
+  /* ============ 浮层 mockups ============ */
+  .overlay-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 22px; }
+  .ov-stage {
+    background: var(--page-card); border: 1px solid var(--page-border); border-radius: 14px;
+    height: 330px; position: relative; overflow: hidden;
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+  .ov-stage .backdrop-lines {
+    position: absolute; inset: 0; opacity: .5;
+    background-image: repeating-linear-gradient(0deg, var(--page-border) 0 1px, transparent 1px 34px),
+                      repeating-linear-gradient(90deg, var(--page-border) 0 1px, transparent 1px 34px);
+  }
+  .ov-caption { position: absolute; left: 14px; top: 12px; font-size: 12px; color: var(--page-muted); z-index: 2; }
+  .ov-caption b { color: var(--page-fg); font-weight: 650; }
+
+  .palette {
+    position: relative; z-index: 1; margin-top: 46px; width: 74%;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.45); overflow: hidden; color: var(--text);
+  }
+  .palette .pinput {
+    display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-bottom: 1px solid var(--border-soft);
+    font-size: 13px; color: var(--text);
+  }
+  .palette .pinput .ph { color: var(--muted); }
+  .pgroup { padding: 7px 8px 9px; }
+  .pgroup .gt { font-size: 10.5px; font-weight: 650; color: var(--muted); letter-spacing: .06em; padding: 3px 8px 5px; }
+  .pitem { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 9px; font-size: 12.5px; }
+  .pitem.on { background: var(--accent-soft); }
+  .pitem .i { width: 14px; height: 14px; color: var(--muted); }
+  .pitem.on .i { color: var(--accent); }
+  .pitem .sub { color: var(--muted); font-size: 11px; margin-left: 2px; }
+  .pitem kbd { margin-left: auto; }
+
+  .plan-pop {
+    position: relative; z-index: 1; margin-top: 30px; width: 78%;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.45); color: var(--text); overflow: hidden;
+  }
+  .plan-pop .ph2 { display: flex; align-items: center; gap: 8px; padding: 13px 15px 4px; font-weight: 650; font-size: 13px; }
+  .plan-pop .ph2 .i { width: 14px; height: 14px; color: var(--accent); }
+  .plan-pop .psub { padding: 0 15px 10px; font-size: 11.5px; color: var(--muted); }
+  .pcheck { display: flex; align-items: center; gap: 10px; padding: 8px 15px; font-size: 12.5px; }
+  .cb { width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; }
+  .cb.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cb.on .i { width: 10px; height: 10px; stroke-width: 3; }
+  .pcheck .st { margin-left: auto; font-size: 10.5px; }
+  .pcheck .st.r { color: var(--green); } .pcheck .st.idle { color: var(--muted); }
+  .plan-run {
+    margin: 10px 12px 12px; height: 34px; border-radius: 10px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12.5px; font-weight: 650;
+  }
+  .plan-run .i { width: 13px; height: 13px; fill: currentColor; stroke: none; }
+
+  /* ============ 状态卡 & tokens ============ */
+  .state-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .state-cell { display: flex; flex-direction: column; gap: 9px; }
+  .state-cell .cap { font-size: 12px; color: var(--page-muted); }
+  .state-cell .cap b { color: var(--page-fg); font-weight: 650; display: block; font-size: 13px; }
+
+  .token-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .token-table th { text-align: left; color: var(--page-muted); font-weight: 600; font-size: 12px; padding: 10px 14px; border-bottom: 1px solid var(--page-border); }
+  .token-table td { padding: 11px 14px; border-bottom: 1px solid var(--page-border); }
+  .token-table tr:last-child td { border-bottom: none; }
+  .token-table code { font-family: Consolas, monospace; font-size: 12px; background: var(--page-card); border: 1px solid var(--page-border); padding: 2px 7px; border-radius: 6px; }
+  .sw { display: inline-flex; align-items: center; gap: 8px; }
+  .sw i { width: 16px; height: 16px; border-radius: 5px; border: 1px solid rgba(128,128,128,.25); }
+
+  table.tokwrap { background: var(--page-card); border: 1px solid var(--page-border); border-radius: 12px; overflow: hidden; border-collapse: separate; border-spacing: 0; }
+
+  /* 改动清单 */
+  .changes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px; background: var(--page-card); border: 1px solid var(--page-border); border-radius: 12px; padding: 22px 24px; }
+  .chg { display: flex; gap: 11px; align-items: flex-start; font-size: 13px; }
+  .chg .n { width: 20px; height: 20px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+    font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .chg b { font-weight: 650; }
+  .chg .was { color: var(--page-muted); display: block; font-size: 12px; margin-top: 1px; }
+
+  footer { margin-top: 70px; color: var(--page-muted); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<!-- SVG 符号库 -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3M21 3v6h-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+  <symbol id="i-blocks" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.7M12 18.5v2.7M2.8 12h2.7M18.5 12h2.7M5.6 5.6l1.9 1.9M16.5 16.5l1.9 1.9M18.4 5.6l-1.9 1.9M7.5 16.5l-1.9 1.9"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m4 17 6-5-6-5M12 19h8"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5M2 17l10 5 10-5"/></symbol>
+  <symbol id="i-clear" viewBox="0 0 24 24"><path d="m5 7 7 7 7-7" transform="rotate(-135 12 12)"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 4h6l-1 7 3 3H7l3-3zM12 14v7"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></symbol>
+</svg>
+
+<div class="wrap">
+
+  <!-- ============ 01 主窗口 ============ -->
+  <div class="page-head">
+    <div>
+      <h1>XProj UI 重构提案</h1>
+      <p>Activity Rail 布局 · 统一分组树 · 多标签日志 · 命令状态卡片 — 右上角切换亮 / 暗主题</p>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+      切换主题
+    </button>
+  </div>
+
+  <div class="win">
+    <!-- 标题栏 -->
+    <div class="titlebar">
+      <div class="logo"></div>
+      <span class="app-name">XProj</span>
+      <div class="cmdk-pill">
+        <svg class="i"><use href="#i-search"/></svg>
+        <span>搜索项目、命令或运行方案…</span>
+        <kbd>Ctrl</kbd><kbd>K</kbd>
+      </div>
+      <div class="titlebar-actions">
+        <div class="tb-btn"><svg class="i"><use href="#i-gear"/></svg></div>
+        <div class="tb-btn"><svg class="i"><use href="#i-minus"/></svg></div>
+        <div class="tb-btn"><svg class="i"><use href="#i-max"/></svg></div>
+        <div class="tb-btn close"><svg class="i"><use href="#i-x"/></svg></div>
+      </div>
+    </div>
+
+    <div class="win-body">
+      <!-- Activity Rail -->
+      <div class="rail">
+        <div class="rail-btn active" title="项目">
+          <svg class="i"><use href="#i-folder"/></svg>
+          <span class="rail-badge">3</span>
+        </div>
+        <div class="rail-btn" title="备忘录">
+          <svg class="i"><use href="#i-note"/></svg>
+        </div>
+        <div class="rail-btn" title="插件管理">
+          <svg class="i"><use href="#i-blocks"/></svg>
+        </div>
+        <div class="rail-spacer"></div>
+        <div class="rail-btn" title="设置">
+          <svg class="i"><use href="#i-gear"/></svg>
+        </div>
+      </div>
+
+      <!-- 统一树列：分组 + 项目 -->
+      <div class="tree-col">
+        <div class="col-head">
+          <span class="t">工作空间</span>
+          <div style="display:flex;gap:2px">
+            <div class="icon-btn" title="新建分组"><svg class="i"><use href="#i-plus"/></svg></div>
+          </div>
+        </div>
+        <div class="searchbox">
+          <svg class="i"><use href="#i-search"/></svg>
+          <span>搜索项目、目录或命令</span>
+        </div>
+
+        <div class="tree">
+          <div class="trow"><svg class="i chev" style="transform:rotate(90deg)"><use href="#i-chev"/></svg><svg class="i"><use href="#i-folder"/></svg><span class="name" style="font-weight:600">工作项目</span><span class="cnt">4</span></div>
+          <div class="trow lvl2 sel"><svg class="i chev" style="transform:rotate(90deg)"><use href="#i-chev"/></svg><span class="dot run"></span><span class="name">api-gateway</span><span class="cnt">2/3</span></div>
+          <div class="trow lvl2"><svg class="i chev"><use href="#i-chev"/></svg><span class="dot run"></span><span class="name">web-app</span><span class="cnt">1/2</span></div>
+          <div class="trow lvl2"><svg class="i chev"><use href="#i-chev"/></svg><span class="dot off"></span><span class="name">shared-lib</span></div>
+          <div class="trow lvl2"><svg class="i chev"><use href="#i-chev"/></svg><span class="dot err"></span><span class="name">worker-service</span></div>
+          <div class="trow"><svg class="i chev" style="transform:rotate(90deg)"><use href="#i-chev"/></svg><svg class="i"><use href="#i-folder"/></svg><span class="name" style="font-weight:600">实验项目</span><span class="cnt">2</span></div>
+          <div class="trow lvl2"><svg class="i chev"><use href="#i-chev"/></svg><span class="dot off"></span><span class="name">ml-sandbox</span></div>
+          <div class="trow lvl2"><svg class="i chev"><use href="#i-chev"/></svg><span class="dot off"></span><span class="name">rust-cli</span></div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="col-head">
+          <span class="t">运行方案</span>
+          <div class="icon-btn" title="管理运行方案"><svg class="i"><use href="#i-gear"/></svg></div>
+        </div>
+        <div>
+          <div class="plan-item">
+            <div class="plan-ic"><svg class="i"><use href="#i-zap"/></svg></div>
+            <div class="plan-meta"><div class="n">全套联调</div><div class="s">5 条命令 · 2 运行中</div></div>
+            <div class="plan-go"><svg class="i"><use href="#i-play"/></svg></div>
+          </div>
+          <div class="plan-item">
+            <div class="plan-ic"><svg class="i"><use href="#i-zap"/></svg></div>
+            <div class="plan-meta"><div class="n">仅前端</div><div class="s">2 条命令</div></div>
+            <div class="plan-go"><svg class="i"><use href="#i-play"/></svg></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 详情列 -->
+      <div class="detail">
+        <!-- 项目头 -->
+        <div class="proj-head">
+          <div class="avatar">A</div>
+          <div class="proj-meta">
+            <div class="n">api-gateway <span class="chip run">● 2 运行中</span></div>
+            <div class="path">D:\work\api-gateway</div>
+          </div>
+          <div class="head-actions">
+            <div class="act-btn" title="编辑项目"><svg class="i"><use href="#i-pencil"/></svg></div>
+            <div class="act-btn" title="打开目录"><svg class="i"><use href="#i-folder"/></svg></div>
+            <div class="act-btn" title="打开终端"><svg class="i"><use href="#i-terminal"/></svg></div>
+            <div class="act-btn" title="VS Code"><svg class="i"><use href="#i-code"/></svg></div>
+            <div class="act-btn danger" title="删除项目"><svg class="i"><use href="#i-trash"/></svg></div>
+          </div>
+        </div>
+
+        <!-- 命令状态卡片 -->
+        <div class="cmd-row">
+          <div class="cmd-card running">
+            <div class="cmd-top">
+              <span class="nm">dev</span>
+              <span class="dur"><svg class="i"><use href="#i-clock"/></svg>02:31</span>
+            </div>
+            <div class="cmd-snippet">dotnet run --project src/Api</div>
+            <div class="cmd-toggle"><span class="run-btn stop"><svg class="i"><use href="#i-stop"/></svg>停止</span></div>
+          </div>
+          <div class="cmd-card running">
+            <div class="cmd-top">
+              <span class="nm">watch</span>
+              <span class="dur"><svg class="i"><use href="#i-clock"/></svg>02:28</span>
+            </div>
+            <div class="cmd-snippet">npm run watch</div>
+            <div class="cmd-toggle"><span class="run-btn stop"><svg class="i"><use href="#i-stop"/></svg>停止</span></div>
+          </div>
+          <div class="cmd-card">
+            <div class="cmd-top">
+              <span class="nm">test</span>
+              <span class="dur">—</span>
+            </div>
+            <div class="cmd-snippet">dotnet test</div>
+            <div class="cmd-toggle"><span class="run-btn"><svg class="i fill"><use href="#i-play"/></svg>运行</span></div>
+          </div>
+          <div class="cmd-card failed">
+            <div class="cmd-top">
+              <span class="nm">migrate</span>
+              <span class="dur">exit 1</span>
+            </div>
+            <div class="cmd-snippet">dotnet ef database update</div>
+            <div class="cmd-toggle"><span class="run-btn retry"><svg class="i"><use href="#i-refresh"/></svg>重试</span></div>
+          </div>
+        </div>
+
+        <!-- 日志面板 -->
+        <div class="log-panel">
+          <div class="log-tabs">
+            <div class="ltab on"><span class="dot run"></span>dev<svg class="i" style="color:var(--muted)"><use href="#i-pin"/></svg></div>
+            <div class="ltab"><span class="dot run"></span>watch</div>
+            <div class="ltab"><svg class="i ok"><use href="#i-check"/></span></svg>test</div>
+            <div class="ltab"><span class="dot err"></span>migrate</div>
+            <div class="log-search"><svg class="i"><use href="#i-search"/></svg><span>筛选日志…</span></div>
+            <div class="tool">
+              <div class="tool-btn stop" title="停止命令"><svg class="i"><use href="#i-stop"/></svg></div>
+              <div class="tool-btn" title="重启命令"><svg class="i"><use href="#i-refresh"/></svg></div>
+              <div class="tool-btn" title="清空日志"><svg class="i"><use href="#i-trash"/></svg></div>
+            </div>
+          </div>
+          <div class="log-body">
+<div class="ln"><span class="ts">[10:21:31] </span><span class="lv inf">INF</span>  Now listening on: https://localhost:7231</div>
+<div class="ln"><span class="ts">[10:21:31] </span><span class="lv inf">INF</span>  Application started. Press Ctrl+C to shut down.</div>
+<div class="ln"><span class="ts">[10:21:31] </span><span class="lv inf">INF</span>  Hosting environment: Development</div>
+<div class="ln"><span class="ts">[10:22:01] </span><span class="lv inf">INF</span>  Request starting HTTP/2 GET https://localhost:7231/api/projects</div>
+<div class="ln"><span class="ts">[10:22:01] </span><span class="lv inf">INF</span>  Request finished HTTP/2 200 - 18.4911ms</div>
+<div class="ln"><span class="ts">[10:22:14] </span><span class="lv wrn">WRN</span>  Slow request detected: /api/builds took 1842ms</div>
+<div class="ln"><span class="ts">[10:23:02] </span><span class="lv inf">INF</span>  Request starting HTTP/2 POST https://localhost:7231/api/deploy</div>
+<div class="ln hl"><span class="ts">[10:23:47] </span><span class="lv err">ERR</span>  Failed to invoke HubMethod "broadcast": connection disposed</div>
+<div class="ln"><span class="ts">[10:23:47] </span><span class="lv err">ERR</span>     at Program.&lt;&gt;c.&lt;&lt;Main&gt;b__0_2&gt;d.MoveNext() in Program.cs:line 42</div>
+<div class="ln"><span class="ts">[10:23:48] </span><span class="lv inf">INF</span>  Reconnecting in 00:00:05 (attempt 1/5)…</div>
+          </div>
+          <div class="stdin-row">
+            <div class="stdin"><span style="color:var(--accent);font-family:Consolas,monospace">❯</span> 向运行中的命令发送输入…</div>
+            <div class="send-btn"><svg class="i"><use href="#i-send"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 状态栏 -->
+    <div class="statusbar">
+      <span class="st-ok"><svg class="i"><use href="#i-check"/></svg>就绪</span>
+      <span class="st-run"><span class="dot run"></span>3 个命令运行中 · 总时长 12:41</span>
+      <div class="st-right">
+        <span>CPU 4% · 内存 86 MB</span>
+        <span class="st-upd"><svg class="i"><use href="#i-up"/></svg>新版本 v1.3.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 02 浮层 ============ -->
+  <div class="sec-label">
+    <span class="no">02</span><h2>全局浮层</h2>
+    <span class="desc">Ctrl+K 命令面板 与 运行方案弹层</span>
+  </div>
+  <div class="overlay-grid">
+    <div class="ov-stage">
+      <div class="backdrop-lines"></div>
+      <div class="ov-caption"><b>Ctrl+K 命令面板</b> · 全局搜索项目 / 命令 / 方案，键盘直达</div>
+      <div class="palette">
+        <div class="pinput"><svg class="i" style="color:var(--muted)"><use href="#i-search"/></svg><span class="ph">dev…</span></div>
+        <div class="pgroup">
+          <div class="gt">命令</div>
+          <div class="pitem on"><svg class="i"><use href="#i-play"/></svg>运行 api-gateway · dev<span class="sub">dotnet run</span><kbd>↵</kbd></div>
+          <div class="pitem"><svg class="i"><use href="#i-refresh"/></svg>重启 web-app · watch</div>
+          <div class="gt" style="margin-top:4px">项目</div>
+          <div class="pitem"><svg class="i"><use href="#i-folder"/></svg>打开 worker-service<span class="sub">D:\work\worker</span></div>
+          <div class="gt" style="margin-top:4px">运行方案</div>
+          <div class="pitem"><svg class="i"><use href="#i-zap"/></svg>启动方案 · 全套联调</div>
+        </div>
+      </div>
+    </div>
+    <div class="ov-stage">
+      <div class="backdrop-lines"></div>
+      <div class="ov-caption"><b>运行方案弹层</b> · 启动前可预览将执行的命令与状态</div>
+      <div class="plan-pop">
+        <div class="ph2"><svg class="i"><use href="#i-zap"/></svg>全套联调</div>
+        <div class="psub">5 条命令 · 2 条已在运行，其余将按顺序启动</div>
+        <div class="pcheck"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span>api-gateway · dev<span class="st r">● 运行中 02:31</span></div>
+        <div class="pcheck"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span>api-gateway · watch<span class="st r">● 运行中 02:28</span></div>
+        <div class="pcheck"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span>web-app · dev<span class="st idle">○ 待启动</span></div>
+        <div class="pcheck"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span>web-app · storybook<span class="st idle">○ 待启动</span></div>
+        <div class="pcheck"><span class="cb"><svg class="i"><use href="#i-check"/></svg></span>worker-service · migrate<span class="st idle">○ 已跳过</span></div>
+        <div class="plan-run"><svg class="i"><use href="#i-play"/></svg>运行方案（4 条命令）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 03 状态系统 ============ -->
+  <div class="sec-label">
+    <span class="no">03</span><h2>命令状态系统</h2>
+    <span class="desc">一套语义色贯穿：树节点圆点 · 命令卡片 · 日志标签 · 状态栏</span>
+  </div>
+  <div class="state-grid">
+    <div class="state-cell">
+      <div class="cmd-card" style="max-width:230px">
+        <div class="cmd-top"><span class="nm">build</span></div>
+        <div class="cmd-snippet">dotnet build -c Release</div>
+        <div class="cmd-toggle"><span class="run-btn"><svg class="i fill"><use href="#i-play"/></svg>运行</span></div>
+      </div>
+      <div class="cap"><b>Idle 待运行</b>中性表面 + 主色按钮，点击即启动</div>
+    </div>
+    <div class="state-cell">
+      <div class="cmd-card running" style="max-width:230px">
+        <div class="cmd-top"><span class="nm">dev</span><span class="dur"><svg class="i"><use href="#i-clock"/></svg>02:31</span></div>
+        <div class="cmd-snippet">dotnet run</div>
+        <div class="cmd-toggle"><span class="run-btn stop"><svg class="i"><use href="#i-stop"/></svg>停止</span></div>
+      </div>
+      <div class="cap"><b>Running 运行中</b>绿色表面 + 呼吸圆点 + 实时时长</div>
+    </div>
+    <div class="state-cell">
+      <div class="cmd-card failed" style="max-width:230px">
+        <div class="cmd-top"><span class="nm">migrate</span><span class="dur">exit 1</span></div>
+        <div class="cmd-snippet">dotnet ef database update</div>
+        <div class="cmd-toggle"><span class="run-btn retry"><svg class="i"><use href="#i-refresh"/></svg>重试</span></div>
+      </div>
+      <div class="cap"><b>Failed 已退出(非0)</b>红色表面 + 退出码 + 一键重试</div>
+    </div>
+    <div class="state-cell">
+      <div class="cmd-card" style="max-width:230px;background:var(--green-soft);border-color:transparent">
+        <div class="cmd-top"><span class="nm">test</span><span class="dur" style="color:var(--green)">✓ exit 0</span></div>
+        <div class="cmd-snippet">dotnet test</div>
+        <div class="cmd-toggle"><span class="run-btn"><svg class="i fill"><use href="#i-play"/></svg>再跑一次</span></div>
+      </div>
+      <div class="cap"><b>Success 已退出(0)</b>淡绿表面 + 成功态，保留日志可回看</div>
+    </div>
+  </div>
+
+  <!-- ============ 04 关键改动 ============ -->
+  <div class="sec-label">
+    <span class="no">04</span><h2>关键改动 vs 现状</h2>
+    <span class="desc">不动业务逻辑，仅重组信息架构</span>
+  </div>
+  <div class="changes">
+    <div class="chg"><span class="n">1</span><div><b>新增左侧 Activity Rail</b>替代标题栏图标导航<span class="was">现状：项目/备忘录/插件按钮藏在标题栏左侧，插件多了会挤爆；Rail 天然可扩展，项目图标直接挂运行数角标</span></div></div>
+    <div class="chg"><span class="n">2</span><div><b>分组树与项目列表合并为一棵树</b>，砍掉中间列<span class="was">现状：230px 树 + 326px 列表两个独立滚动区；合并后日志区多出约 300px 宽度，项目运行状态一目了然</span></div></div>
+    <div class="chg"><span class="n">3</span><div><b>命令 chip → 状态卡片</b><span class="was">现状：chip 只显示名字+图标，运行中变绿；卡片暴露命令行、时长、退出码，"停止/重试" 直接可见，不再依赖右键菜单</span></div></div>
+    <div class="chg"><span class="n">4</span><div><b>日志多标签化</b><span class="was">现状：一次只能看一条命令的日志（切命令丢视角）；tab 化后每条命令独立缓冲，后台命令持续录制</span></div></div>
+    <div class="chg"><span class="n">5</span><div><b>标题栏中央 → Ctrl+K 命令面板</b><span class="was">现状：中央是运行状态 chip；运行汇总移入状态栏与 Rail 角标，中央位置留给全局命令面板</span></div></div>
+    <div class="chg"><span class="n">6</span><div><b>状态栏结构化</b><span class="was">现状：只有一句 StatusText；改为 就绪态 + 运行汇总 + 资源占用 + 更新提示 分区展示</span></div></div>
+    <div class="chg"><span class="n">7</span><div><b>运行方案获得"启动前预览"弹层</b><span class="was">现状：侧栏直接一键启动，黑盒感强；预览各命令当前状态、可勾选跳过，降低误启动成本</span></div></div>
+    <div class="chg"><span class="n">8</span><div><b>设计令牌层落地</b><span class="was">现状：DynamicResource 笔刷已具备；补充 spacing / radius / 字阶三层 token，新组件不再随手写 Magic Number</span></div></div>
+  </div>
+
+  <!-- ============ 05 设计令牌 ============ -->
+  <div class="sec-label">
+    <span class="no">05</span><h2>设计令牌</h2>
+    <span class="desc">对应 AppleStyles.xaml 中的 DynamicResource 资源名</span>
+  </div>
+  <table class="tokwrap token-table">
+    <tr><th>令牌</th><th>亮色</th><th>暗色</th><th>用途 / 对应资源</th></tr>
+    <tr><td><code>accent</code></td><td><span class="sw"><i style="background:#0071E3"></i>#0071E3</span></td><td><span class="sw"><i style="background:#0A84FF"></i>#0A84FF</span></td><td>主操作 · AccentBrush</td></tr>
+    <tr><td><code>success</code></td><td><span class="sw"><i style="background:#248A3D"></i>#248A3D</span></td><td><span class="sw"><i style="background:#32D74B"></i>#32D74B</span></td><td>运行中/成功 · SuccessBrush</td></tr>
+    <tr><td><code>danger</code></td><td><span class="sw"><i style="background:#D70015"></i>#D70015</span></td><td><span class="sw"><i style="background:#FF453A"></i>#FF453A</span></td><td>失败/删除 · DangerBrush</td></tr>
+    <tr><td><code>warning</code></td><td><span class="sw"><i style="background:#B25000"></i>#B25000</span></td><td><span class="sw"><i style="background:#FF9F0A"></i>#FF9F0A</span></td><td>警告/慢请求 · WarningBrush</td></tr>
+    <tr><td><code>surface-1</code></td><td><span class="sw"><i style="background:#FFFFFF"></i>#FFFFFF</span></td><td><span class="sw"><i style="background:#232429"></i>#232429</span></td><td>卡片面板 · PanelBrush</td></tr>
+    <tr><td><code>surface-2</code></td><td><span class="sw"><i style="background:#F4F5F7"></i>#F4F5F7</span></td><td><span class="sw"><i style="background:#2A2B31"></i>#2A2B31</span></td><td>内嵌面板/输入框 · InsetPanelBrush</td></tr>
+    <tr><td><code>surface-rail</code></td><td><span class="sw"><i style="background:#F7F7F9"></i>#F7F7F9</span></td><td><span class="sw"><i style="background:#1F2024"></i>#1F2024</span></td><td>Rail / 侧栏 · SidebarBrush</td></tr>
+    <tr><td><code>radius-sm</code></td><td colspan="2" style="text-align:center">8px</td><td>小按钮 / 输入框</td></tr>
+    <tr><td><code>radius-md</code></td><td colspan="2" style="text-align:center">12px</td><td>卡片 / 命令按钮</td></tr>
+    <tr><td><code>radius-lg</code></td><td colspan="2" style="text-align:center">16px</td><td>窗口 / 日志面板</td></tr>
+    <tr><td><code>space-unit</code></td><td colspan="2" style="text-align:center">4px 基数（4/8/12/16/24）</td><td>所有 padding / margin / gap</td></tr>
+    <tr><td><code>font-scale</code></td><td colspan="2" style="text-align:center">11 / 12 / 12.5 / 14 / 18 / 25 px</td><td>辅助 / 正文 / 标题（保持现有 UiFontSize 可调体系）</td></tr>
+  </table>
+
+  <footer>XProj UI 重构提案 · HTML 高保真原型，仅用于视觉/交互评审，非最终实现</footer>
+</div>
+
+<script>
+  function toggleTheme() {
+    const el = document.documentElement;
+    el.dataset.theme = el.dataset.theme === "dark" ? "light" : "dark";
+  }
+</script>
+</body>
+</html>

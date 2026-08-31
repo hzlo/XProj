@@ -42,7 +42,9 @@ public static class ThemeManager
         var uiFontFamily = new FontFamily(settings.UiFontFamily);
         application.Resources["UiFontFamily"] = uiFontFamily;
         application.Resources["LogFontFamily"] = new FontFamily(settings.LogFontFamily);
+        application.Resources["LogFontSize"] = settings.LogFontSize;
         application.Resources["UiFontSize"] = settings.UiFontSize;
+        ApplyUiFontScale(application.Resources, settings.UiFontSize);
 
         foreach (Window window in application.Windows)
         {
@@ -50,6 +52,15 @@ public static class ThemeManager
             window.FontSize = settings.UiFontSize;
             WindowBackdrop.Apply(window, IsDark);
         }
+    }
+
+    private static void ApplyUiFontScale(ResourceDictionary resources, double baseSize)
+    {
+        resources["UiFontSizePageTitle"] = baseSize + 5;
+        resources["UiFontSizeDialogTitle"] = baseSize + 3;
+        resources["UiFontSizeSectionTitle"] = baseSize + 1;
+        resources["UiFontSizeFieldLabel"] = baseSize - 1;
+        resources["UiFontSizeCaption"] = baseSize - 2;
     }
 
     public static bool TryNormalizeColor(string? value, out string normalized)

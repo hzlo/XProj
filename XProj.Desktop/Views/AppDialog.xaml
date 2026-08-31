@@ -8,10 +8,10 @@
         MaxHeight="620"
         ResizeMode="NoResize"
         WindowStyle="None"
-        AllowsTransparency="True"
+         AllowsTransparency="False"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="Transparent">
+         Background="{DynamicResource WindowBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="0" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -55,10 +55,9 @@
                                      VerticalAlignment="Center" />
                 </Border>
                 <StackPanel Grid.Column="1" Margin="3,0,0,0">
-                    <TextBlock Text="{Binding Heading}" FontSize="20" Margin="0,0,0,8" />
+                    <TextBlock Text="{Binding Heading}" Style="{StaticResource PageTitle}" Margin="0,0,0,8" />
                     <TextBlock Text="{Binding Message}"
                                Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontSize="13"
                                LineHeight="21"
                                TextWrapping="Wrap" />
                 </StackPanel>

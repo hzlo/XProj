@@ -9,10 +9,10 @@
         MinWidth="720"
         MinHeight="660"
         WindowStyle="None"
-        AllowsTransparency="True"
+         AllowsTransparency="False"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="Transparent">
+         Background="{DynamicResource WindowBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -123,7 +123,7 @@
                     <Grid Grid.Row="2" Margin="1,20,0,9">
                         <StackPanel>
                             <TextBlock Text="项目命令" Style="{StaticResource SectionTitle}" />
-                            <TextBlock Text="每条命令都在上方的工作目录中运行" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0" />
+                             <TextBlock Text="每条命令都在上方的工作目录中运行" Foreground="{DynamicResource MutedTextBrush}" Margin="0,3,0,0" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <Button Style="{StaticResource IconButton}"
@@ -195,7 +195,7 @@
             </Border>
 
             <Grid Grid.Row="3" Margin="28,18,28,24">
-                <TextBlock Text="示例：npm run dev · dotnet run · java -jar app.jar" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" />
+                                 <TextBlock Text="示例：npm run dev · dotnet run · java -jar app.jar" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="取消" MinWidth="86" IsCancel="True" />
                     <Button Content="保存项目" MinWidth="104" Click="Save_Click" />

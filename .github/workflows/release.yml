@@ -32,7 +32,7 @@ jobs:
 
       - name: Publish self-contained package
         run: >-
-          dotnet publish ProjectManager.Wpf/ProjectManager.Wpf.csproj
+          dotnet publish XProj.Desktop/XProj.Desktop.csproj
           --configuration Release
           --runtime win-x64
           --self-contained true
@@ -42,7 +42,7 @@ jobs:
 
       - name: Publish framework-dependent package
         run: >-
-          dotnet publish ProjectManager.Wpf/ProjectManager.Wpf.csproj
+          dotnet publish XProj.Desktop/XProj.Desktop.csproj
           --configuration Release
           --runtime win-x64
           --self-contained false

@@ -58,16 +58,28 @@ public partial class MainWindow : Window
         {
             switch (sender)
             {
-                case TreeView when _dragSourceItem is GroupTreeItem sourceGroup &&
-                    target is GroupTreeItem targetGroup &&
-                    sourceGroup.Kind == GroupFilterKind.Group &&
-                    targetGroup.Kind == GroupFilterKind.Group &&
-                    sourceGroup.GroupId.HasValue &&
-                    targetGroup.GroupId.HasValue:
-                    await _viewModel.ReorderGroupAsync(
-                        sourceGroup.GroupId.Value,
-                        targetGroup.GroupId.Value,
-                        ShouldInsertAfter<TreeViewItem>(e));
+                case TreeView when _dragSourceItem is WorkspaceTreeItem sourceWorkspace &&
+                    target is WorkspaceTreeItem targetWorkspace:
+                    if (sourceWorkspace.Kind == WorkspaceTreeItemKind.Group &&
+                        targetWorkspace.Kind == WorkspaceTreeItemKind.Group &&
+                        sourceWorkspace.GroupId.HasValue &&
+                        targetWorkspace.GroupId.HasValue)
+                    {
+                        await _viewModel.ReorderGroupAsync(
+                            sourceWorkspace.GroupId.Value,
+                            targetWorkspace.GroupId.Value,
+                            ShouldInsertAfter<TreeViewItem>(e));
+                    }
+                    else if (sourceWorkspace.Kind == WorkspaceTreeItemKind.Project &&
+                             targetWorkspace.Kind == WorkspaceTreeItemKind.Project &&
+                             sourceWorkspace.Project is not null &&
+                             targetWorkspace.Project is not null)
+                    {
+                        await _viewModel.ReorderProjectAsync(
+                            sourceWorkspace.Project.Id,
+                            targetWorkspace.Project.Id,
+                            ShouldInsertAfter<TreeViewItem>(e));
+                    }
                     break;
 
                 case ListBox when _dragSourceItem is ManagedProject sourceProject &&
@@ -83,7 +95,7 @@ public partial class MainWindow : Window
                     await _viewModel.ReorderCommandAsync(
                         sourceCommand.Command.Id,
                         targetCommand.Command.Id,
-                        ShouldInsertAfter<Button>(e, horizontal: true));
+                        ShouldInsertAfter<Border>(e, horizontal: true));
                     break;
             }
         }
@@ -102,7 +114,7 @@ public partial class MainWindow : Window
     {
         return sender switch
         {
-            TreeView => FindDataContext<GroupTreeItem>(source),
+            TreeView => FindDataContext<WorkspaceTreeItem>(source),
             ListBox => FindDataContext<ManagedProject>(source),
             ItemsControl => FindDataContext<CommandRuntimeViewModel>(source),
             _ => null
@@ -113,7 +125,7 @@ public partial class MainWindow : Window
     {
         return sender switch
         {
-            TreeView => sourceItem is GroupTreeItem { Kind: GroupFilterKind.Group },
+            TreeView => sourceItem is WorkspaceTreeItem { Kind: WorkspaceTreeItemKind.Group or WorkspaceTreeItemKind.Project },
             ListBox => sourceItem is ManagedProject,
             ItemsControl => sourceItem is CommandRuntimeViewModel,
             _ => false

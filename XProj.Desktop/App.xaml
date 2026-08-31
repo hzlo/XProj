@@ -9,6 +9,13 @@
             <FontFamily x:Key="UiFontFamily">Microsoft YaHei UI</FontFamily>
             <FontFamily x:Key="LogFontFamily">Consolas</FontFamily>
             <sys:Double x:Key="UiFontSize">13</sys:Double>
+            <sys:Double x:Key="LogFontSize">11</sys:Double>
+            <!-- These are relative to UiFontSize; ThemeManager updates them when the user changes it. -->
+            <sys:Double x:Key="UiFontSizePageTitle">18</sys:Double>
+            <sys:Double x:Key="UiFontSizeDialogTitle">16</sys:Double>
+            <sys:Double x:Key="UiFontSizeSectionTitle">14</sys:Double>
+            <sys:Double x:Key="UiFontSizeFieldLabel">12</sys:Double>
+            <sys:Double x:Key="UiFontSizeCaption">11</sys:Double>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Themes/AppleDark.xaml" />
                 <ResourceDictionary Source="Themes/AppleStyles.xaml" />

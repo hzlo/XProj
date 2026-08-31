@@ -29,6 +29,8 @@ public sealed class AppSettings
     public bool LogFontBold { get; set; }
     public bool LogFontItalic { get; set; }
     public int LogVisibleLineCount { get; set; } = 300;
+    public bool EnablePlugins { get; set; }
+    public bool EnableNotes { get; set; } = true;
 
     public AppSettings Clone() => new()
     {
@@ -44,7 +46,9 @@ public sealed class AppSettings
         LogFontSize = LogFontSize,
         LogFontBold = LogFontBold,
         LogFontItalic = LogFontItalic,
-        LogVisibleLineCount = LogVisibleLineCount
+        LogVisibleLineCount = LogVisibleLineCount,
+        EnablePlugins = EnablePlugins,
+        EnableNotes = EnableNotes
     };
 }
 

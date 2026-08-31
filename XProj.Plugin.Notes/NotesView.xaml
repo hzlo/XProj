@@ -1,0 +1,81 @@
+<UserControl x:Class="XProj.Plugin.Notes.NotesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
+             Background="Transparent">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="2,2,2,14">
+            <StackPanel>
+                <TextBlock Text="备忘录" Style="{DynamicResource PageTitle}" />
+                <TextBlock Text="保存任意全局 Markdown 文本，不绑定项目" Foreground="{DynamicResource MutedTextBrush}" Margin="0,6,0,0" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Style="{DynamicResource ActionChip}" ToolTip="新建笔记" Click="NewNote_Click">
+                    <mi:MaterialIcon Kind="Plus" Width="16" Height="16" />
+                </Button>
+                <Button Style="{DynamicResource ActionChip}" ToolTip="删除笔记" Click="DeleteNote_Click">
+                    <mi:MaterialIcon Kind="DeleteOutline" Width="16" Height="16" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" MinWidth="190" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="*" MinWidth="420" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{DynamicResource CardBorder}" Background="{DynamicResource SidebarBrush}" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBox x:Name="SearchTextBox" Height="34" Padding="10,7" Tag="搜索笔记" TextChanged="SearchTextBox_TextChanged" />
+                    <ListBox x:Name="NotesListBox" Grid.Row="1" Margin="0,10,0,0" BorderThickness="0" Background="Transparent"
+                             SelectionChanged="NotesListBox_SelectionChanged" DisplayMemberPath="FileName" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="260" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="*" MinWidth="260" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Style="{DynamicResource CardBorder}" Background="{DynamicResource InputBrush}" Padding="14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Margin="2,0,2,10">
+                            <TextBlock x:Name="EditorTitleTextBlock" Text="未选择笔记" Style="{DynamicResource SectionTitle}" />
+                            <TextBlock Text="编辑" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="11" />
+                        </Grid>
+                        <TextBox x:Name="EditorTextBox" Grid.Row="1" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" BorderThickness="0"
+                                 Background="Transparent" FontFamily="{DynamicResource LogFontFamily}" FontSize="13"
+                                 TextChanged="EditorTextBox_TextChanged" />
+                    </Grid>
+                </Border>
+                <Border Grid.Column="2" Style="{DynamicResource CardBorder}" Background="{DynamicResource PanelBrush}" Padding="14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="预览" Style="{DynamicResource SectionTitle}" Margin="2,0,2,10" />
+                        <WebBrowser x:Name="PreviewBrowser" Grid.Row="1" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

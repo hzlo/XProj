@@ -9,10 +9,10 @@
         MinWidth="860"
         MinHeight="620"
         WindowStyle="None"
-        AllowsTransparency="True"
+         AllowsTransparency="False"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="Transparent">
+         Background="{DynamicResource WindowBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -363,11 +363,9 @@
                                                                         </Grid.ColumnDefinitions>
                                                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                                             <TextBlock Text="{Binding Name.ProjectDisplayName}"
-                                                                                       FontWeight="SemiBold"
                                                                                        TextTrimming="CharacterEllipsis" />
                                                                             <TextBlock Text="{Binding ItemCount, StringFormat={}{0} 条命令}"
                                                                                        Margin="9,0,0,0"
-                                                                                       FontSize="10"
                                                                                        Foreground="{DynamicResource MutedTextBrush}"
                                                                                        VerticalAlignment="Center" />
                                                                         </StackPanel>
@@ -409,7 +407,6 @@
                                                       ToolTip="选择此命令" />
                                             <TextBlock Grid.Column="1"
                                                        Text="{Binding CommandName}"
-                                                       FontWeight="SemiBold"
                                                        VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding DisplayName}" />

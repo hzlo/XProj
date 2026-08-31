@@ -18,9 +18,89 @@ public partial class MainWindow : Window
 {
     private void GroupTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        if (e.NewValue is GroupTreeItem group)
+        if (e.NewValue is WorkspaceTreeItem item)
         {
-            _viewModel.SelectedGroup = group;
+            _viewModel.SelectWorkspaceItem(item);
+        }
+    }
+
+    private void WorkspaceItemHeader_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is DependencyObject surface &&
+            FindAncestor<TreeViewItem>(surface) is { } item &&
+            item.HasItems)
+        {
+            var shouldExpand = !item.IsExpanded;
+            if (shouldExpand && ItemsControl.ItemsControlFromItemContainer(item) is { } parent)
+            {
+                foreach (var siblingData in parent.Items)
+                {
+                    if (parent.ItemContainerGenerator.ContainerFromItem(siblingData) is TreeViewItem sibling &&
+                        !ReferenceEquals(sibling, item))
+                    {
+                        sibling.IsExpanded = false;
+                    }
+                }
+            }
+
+            item.IsExpanded = shouldExpand;
+        }
+    }
+
+    private void WorkspaceContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu { PlacementTarget: FrameworkElement target } contextMenu ||
+            target.DataContext is not WorkspaceTreeItem item)
+        {
+            return;
+        }
+
+        _viewModel.SelectWorkspaceItem(item);
+        contextMenu.Items.OfType<MenuItem>().FirstOrDefault(menuItem => menuItem.Header?.ToString() == "编辑分组")!.Visibility =
+            item.Kind == WorkspaceTreeItemKind.Group ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void DeleteWorkspaceItem_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not WorkspaceTreeItem item)
+        {
+            return;
+        }
+
+        if (item.Kind == WorkspaceTreeItemKind.Project && item.Project is not null)
+        {
+            await DeleteProjectAsync(item.Project);
+        }
+        else if (item.Kind == WorkspaceTreeItemKind.Group && item.GroupId.HasValue)
+        {
+            await DeleteGroupAsync(item.GroupId.Value);
+        }
+    }
+
+    private async Task DeleteProjectAsync(ManagedProject project)
+    {
+        _viewModel.SelectedProject = project;
+        if (AppDialog.Confirm(this, "删除项目", $"确定删除项目“{project.Name}”吗？\n\n运行中的命令会先停止，项目目录不会被删除。", "删除项目"))
+        {
+            await ExecuteAsync(() => _viewModel.DeleteProjectAsync(project.Id));
+        }
+    }
+
+    private async Task DeleteGroupAsync(Guid groupId)
+    {
+        var group = _viewModel.GroupItems.SelectMany(FlattenGroups).FirstOrDefault(item => item.GroupId == groupId);
+        if (group is not null && AppDialog.Confirm(this, "删除分组", $"确定删除分组“{group.Name}”吗？\n\n其子分组和项目会移动到上一级，不会被删除。", "删除分组"))
+        {
+            await ExecuteAsync(() => _viewModel.DeleteGroupAsync(groupId));
+        }
+    }
+
+    private static IEnumerable<GroupTreeItem> FlattenGroups(GroupTreeItem item)
+    {
+        yield return item;
+        foreach (var child in item.Children.SelectMany(FlattenGroups))
+        {
+            yield return child;
         }
     }
 
@@ -282,6 +362,7 @@ public partial class MainWindow : Window
             {
                 await _viewModel.UpdateSettingsAsync(dialog.Result);
                 ThemeManager.Apply(dialog.Result);
+                ApplyPluginShell(dialog.Result.EnablePlugins);
             });
             return;
         }
@@ -428,6 +509,48 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             await SendCommandInputAsync();
+        }
+    }
+
+    private async void CommandCard_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (FindAncestor<Button>(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        if ((sender as FrameworkElement)?.DataContext is not CommandRuntimeViewModel command)
+        {
+            return;
+        }
+
+        _viewModel.SelectedCommand = command;
+        if (!command.IsRunning)
+        {
+            await ExecuteAsync(() => _viewModel.RunCommandAsync(command));
+        }
+    }
+
+    private async void CommandCardAction_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.DataContext is not CommandRuntimeViewModel command)
+        {
+            return;
+        }
+
+        _viewModel.SelectedCommand = command;
+        await ExecuteAsync(() => command.IsRunning
+            ? _viewModel.StopCommandAsync(command)
+            : _viewModel.RunCommandAsync(command));
+    }
+
+    private async void StopRunningCommand_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.DataContext is RunningCommandSummary command)
+        {
+            await ExecuteAsync(() => _viewModel.StopCommandAsync(command.CommandId));
         }
     }
 

@@ -10,14 +10,18 @@
     <AssemblyName>XProj</AssemblyName>
     <RootNamespace>ProjectManager.Wpf</RootNamespace>
     <AssemblyTitle>XProj</AssemblyTitle>
-    <Description>XProj</Description>
+    <Description>XProj desktop workspace</Description>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <Version>1.7.0</Version>
     <Product>XProj</Product>
     <Authors>hzlo</Authors>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\XProj.Plugin.Abstractions\XProj.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="..\XProj.Plugin.Notes\XProj.Plugin.Notes.csproj" />
     <Resource Include="Assets\icon.ico" />
     <Resource Include="Assets\logo_dark.png" />
     <Resource Include="Assets\logo_light.png" />

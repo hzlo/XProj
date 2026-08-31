@@ -68,7 +68,7 @@ XProj 通过 Windows `cmd.exe` 执行命令。关闭到系统托盘时，已启�
 git clone https://github.com/hzlo/XProj.git
 cd XProj
 dotnet build .\XProj.sln
-dotnet run --project .\ProjectManager.Wpf\ProjectManager.Wpf.csproj
+dotnet run --project .\XProj.Desktop\XProj.Desktop.csproj
 ```
 
 运行冒烟测试：
@@ -99,6 +99,25 @@ git push origin v1.1.0
 - .NET 10 (`net10.0-windows`)
 - JSON 本地持久化
 - GitHub Actions
+
+## 插件开发
+
+仓库目前包含一个全局 Markdown 备忘录插件示例：
+
+```text
+XProj.Plugin.Abstractions/
+XProj.Plugin.Notes/
+```
+
+插件通过 `XProj.Plugin.Abstractions` 中的 `IXProjPlugin` 和 `PluginHostContext` 接入宿主。当前版本采用解决方案内项目引用，插件在应用启动时由宿主创建；这为后续改造成独立 DLL 扫描加载保留了边界，但目前还不是运行时动态加载机制。
+
+备忘录插件的数据保存在：
+
+```text
+%LOCALAPPDATA%\ProjectManagerWpf\notes\
+```
+
+每个 Markdown 文件对应一篇全局笔记，不绑定 XProj 项目。插件页面提供笔记列表、搜索、编辑、自动保存和 Markdown 预览。
 
 ## 许可证
 

@@ -17,25 +17,31 @@
 
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="Auto" />
+        <Setter Property="TextOptions.TextHintingMode" Value="Auto" />
     </Style>
     <Style TargetType="Label">
         <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="Auto" />
+        <Setter Property="TextOptions.TextHintingMode" Value="Auto" />
     </Style>
     <Style x:Key="PageTitle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="25" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizePageTitle}" />
     </Style>
     <Style x:Key="SectionTitle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="15" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSectionTitle}" />
     </Style>
     <Style x:Key="SectionLabel" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCaption}" />
     </Style>
     <Style x:Key="FieldLabel" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeFieldLabel}" />
         <Setter Property="Margin" Value="1,0,0,7" />
     </Style>
 
@@ -54,6 +60,56 @@
         <Setter Property="CornerRadius" Value="13" />
     </Style>
 
+    <Style x:Key="PluginSwitch" TargetType="ToggleButton">
+        <Setter Property="Width" Value="54" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Background" Value="{DynamicResource InsetPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Track"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="15">
+                        <Ellipse x:Name="Thumb"
+                                 Width="22"
+                                 Height="22"
+                                 Fill="{DynamicResource SecondaryTextBrush}"
+                                 HorizontalAlignment="Left"
+                                 Margin="3"
+                                 RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <TranslateTransform X="0" />
+                            </Ellipse.RenderTransform>
+                        </Ellipse>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Track" Property="Opacity" Value="0.9" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Thumb" Property="Fill" Value="{DynamicResource AppBackdropBrush}" />
+                            <Setter TargetName="Thumb" Property="RenderTransform">
+                                <Setter.Value>
+                                    <TranslateTransform X="22" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Track" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <Style TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource PanelRaisedBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -113,8 +169,6 @@
         <Setter Property="Background" Value="{DynamicResource InsetPanelBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -151,8 +205,6 @@
         <Setter Property="MinHeight" Value="34" />
         <Setter Property="Margin" Value="1" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="Normal" />
     </Style>
     <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Background" Value="{DynamicResource DangerSurfaceBrush}" />
@@ -323,7 +375,6 @@
         <Setter Property="BorderBrush" Value="{DynamicResource SoftBorderBrush}" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
         <Setter Property="Padding" Value="13,0" />
-        <Setter Property="FontSize" Value="11" />
     </Style>
     <Style TargetType="DataGridRow">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -381,7 +432,6 @@
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
         <Setter Property="Padding" Value="10,7" />
-        <Setter Property="FontSize" Value="11" />
         <Setter Property="HasDropShadow" Value="True" />
     </Style>
 

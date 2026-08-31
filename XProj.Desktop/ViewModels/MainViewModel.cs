@@ -37,7 +37,6 @@ public sealed class MainViewModel : ObservableObject
     private string _logSearchText = string.Empty;
     private FontFamily _logFontFamily = new("Consolas");
     private double _logFontSize = 11;
-    private FontWeight _logFontWeight = FontWeights.Normal;
     private FontStyle _logFontStyle = FontStyles.Normal;
     private string _statusText = "正在加载...";
     private int _runningCount;
@@ -57,6 +56,7 @@ public sealed class MainViewModel : ObservableObject
     public event EventHandler<AbnormalProcessExitEventArgs>? AbnormalProcessExited;
 
     public ObservableCollection<GroupTreeItem> GroupItems { get; } = new();
+    public ObservableCollection<WorkspaceTreeItem> WorkspaceItems { get; } = new();
     public ObservableCollection<ManagedProject> Projects { get; } = new();
     public ObservableCollection<CommandRuntimeViewModel> Commands { get; } = new();
     public ObservableCollection<RunningCommandSummary> RunningCommands { get; } = new();
@@ -75,7 +75,7 @@ public sealed class MainViewModel : ObservableObject
                     item.IsSelected = ReferenceEquals(item, value);
                 }
                 OnPropertyChanged(nameof(CanEditSelectedGroup));
-                RefreshProjects();
+                RefreshProjects(rebuildWorkspace: false);
             }
         }
     }
@@ -162,12 +162,6 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public FontWeight LogFontWeight
-    {
-        get => _logFontWeight;
-        private set => SetProperty(ref _logFontWeight, value);
-    }
-
     public FontStyle LogFontStyle
     {
         get => _logFontStyle;
@@ -197,11 +191,13 @@ public sealed class MainViewModel : ObservableObject
     public bool CanEditSelectedGroup => SelectedGroup?.Kind == GroupFilterKind.Group;
     public bool HasSelectedProject => SelectedProject is not null;
     public bool HasSelectedCommand => SelectedCommand is not null;
+    public string DataDirectory => _dataStore.DataDirectory;
     public string DataFilePath => _dataStore.DataFilePath;
     public string LogFontSummary => $"{LogFontFamily.Source} · {LogFontSize * 72 / 96:0.##} pt";
-    public bool IsLogFontBold => LogFontWeight == FontWeights.Bold;
     public bool IsLogFontItalic => LogFontStyle == FontStyles.Italic;
     public AppSettings CurrentSettings => _data.Settings.Clone();
+    public bool EnablePlugins => _data.Settings.EnablePlugins;
+    public bool EnableNotes => _data.Settings.EnableNotes;
 
     public void SetStatus(string text) => StatusText = text;
 
@@ -361,6 +357,20 @@ public sealed class MainViewModel : ObservableObject
         commandRuntime.SetRunning(true, "停止中");
         await _processManager.StopAsync(commandRuntime.Command.Id);
         commandRuntime.SetRunning(false, "已停止");
+        UpdateRunningCount();
+    }
+
+    public async Task StopCommandAsync(Guid commandId)
+    {
+        var command = Commands.FirstOrDefault(item => item.Command.Id == commandId);
+        if (command is not null)
+        {
+            await StopCommandAsync(command);
+            return;
+        }
+
+        _expectedProcessStops[commandId] = 0;
+        await _processManager.StopAsync(commandId);
         UpdateRunningCount();
     }
 
@@ -591,6 +601,23 @@ public sealed class MainViewModel : ObservableObject
 
     public void RefreshRunningSummaries() => UpdateRunningCount();
 
+    public void SelectWorkspaceItem(WorkspaceTreeItem item)
+    {
+        if (item.Kind == WorkspaceTreeItemKind.Project && item.Project is not null)
+        {
+            SelectedProject = item.Project;
+            return;
+        }
+
+        var kind = item.Kind switch
+        {
+            WorkspaceTreeItemKind.All => GroupFilterKind.All,
+            WorkspaceTreeItemKind.Ungrouped => GroupFilterKind.Ungrouped,
+            _ => GroupFilterKind.Group
+        };
+        SelectedGroup = FindGroupTreeItem(kind, item.GroupId);
+    }
+
     public async Task ReorderGroupAsync(Guid sourceGroupId, Guid targetGroupId, bool insertAfter)
     {
         if (sourceGroupId == targetGroupId)
@@ -722,7 +749,7 @@ public sealed class MainViewModel : ObservableObject
         await _dataStore.SaveAsync(_data);
     }
 
-    private void RefreshProjects(Guid? projectToSelect = null)
+    private void RefreshProjects(Guid? projectToSelect = null, bool rebuildWorkspace = true)
     {
         if (_data is null)
         {
@@ -767,6 +794,10 @@ public sealed class MainViewModel : ObservableObject
         }
 
         SelectedProject = Projects.FirstOrDefault(item => item.Id == selectedProjectId) ?? Projects.FirstOrDefault();
+        if (rebuildWorkspace)
+        {
+            RebuildWorkspaceTree();
+        }
         StatusText = $"当前显示 {Projects.Count} / {_data.Projects.Count} 个项目";
     }
 
@@ -824,6 +855,109 @@ public sealed class MainViewModel : ObservableObject
         }
 
         SelectedGroup = FindGroupTreeItem(preferredKind, preferredGroupId) ?? GroupItems.FirstOrDefault();
+        RebuildWorkspaceTree();
+    }
+
+    private void RebuildWorkspaceTree()
+    {
+        WorkspaceItems.Clear();
+        var search = SearchText.Trim();
+        var visibleProjects = _data.Projects
+            .Where(project => search.Length == 0 || MatchesProject(project, search))
+            .OrderBy(project => project.SortOrder)
+            .ThenBy(project => project.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        WorkspaceItems.Add(new WorkspaceTreeItem("全部项目", WorkspaceTreeItemKind.All, projects: visibleProjects));
+        WorkspaceItems.Add(new WorkspaceTreeItem(
+            "未分组",
+            WorkspaceTreeItemKind.Ungrouped,
+            projects: visibleProjects.Where(project => project.GroupId is null).ToList()));
+
+        foreach (var group in _data.Groups
+                     .Where(item => item.ParentId is null)
+                     .OrderBy(item => item.SortOrder)
+                     .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var item = BuildWorkspaceTreeItem(group, visibleProjects, new HashSet<Guid>());
+            if (item is not null)
+            {
+                WorkspaceItems.Add(item);
+            }
+        }
+
+        foreach (var item in EnumerateWorkspaceTreeItems())
+        {
+            if (item.Kind == WorkspaceTreeItemKind.Project && item.Project is not null)
+            {
+                item.UpdateRuntimeState(item.Project.Commands.Count(command => _processManager.IsRunning(command.Id)));
+            }
+            item.IsSelected = item.Kind == WorkspaceTreeItemKind.Project
+                ? item.Project?.Id == SelectedProject?.Id
+                : item.GroupId == SelectedGroup?.GroupId && item.Kind switch
+                {
+                    WorkspaceTreeItemKind.Group => SelectedGroup?.Kind == GroupFilterKind.Group,
+                    WorkspaceTreeItemKind.All => SelectedGroup?.Kind == GroupFilterKind.All,
+                    WorkspaceTreeItemKind.Ungrouped => SelectedGroup?.Kind == GroupFilterKind.Ungrouped,
+                    _ => false
+                };
+        }
+    }
+
+    private WorkspaceTreeItem? BuildWorkspaceTreeItem(
+        ProjectGroup group,
+        IReadOnlyList<ManagedProject> visibleProjects,
+        HashSet<Guid> ancestors)
+    {
+        if (!ancestors.Add(group.Id))
+        {
+            return null;
+        }
+
+        var item = new WorkspaceTreeItem(group.Name, WorkspaceTreeItemKind.Group, group.Id);
+        foreach (var project in visibleProjects.Where(candidate => candidate.GroupId == group.Id))
+        {
+            item.Children.Add(new WorkspaceTreeItem(project.Name, WorkspaceTreeItemKind.Project, project: project));
+        }
+
+        foreach (var child in _data.Groups
+                     .Where(candidate => candidate.ParentId == group.Id)
+                     .OrderBy(candidate => candidate.SortOrder)
+                     .ThenBy(candidate => candidate.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var childItem = BuildWorkspaceTreeItem(child, visibleProjects, new HashSet<Guid>(ancestors));
+            if (childItem is not null)
+            {
+                item.Children.Add(childItem);
+            }
+        }
+
+        item.SetProjectCount(item.Children.Sum(child => child.Kind == WorkspaceTreeItemKind.Project
+            ? 1
+            : child.ProjectCount));
+
+        return item;
+    }
+
+    private static bool MatchesProject(ManagedProject project, string search) =>
+        project.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+        project.WorkingDirectory.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+        project.Commands.Any(command =>
+            command.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            command.CommandText.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<WorkspaceTreeItem> EnumerateWorkspaceTreeItems()
+    {
+        var pending = new Stack<WorkspaceTreeItem>(WorkspaceItems.Reverse());
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            yield return current;
+            foreach (var child in current.Children.Reverse())
+            {
+                pending.Push(child);
+            }
+        }
     }
 
     private GroupTreeItem BuildGroupTreeItem(ProjectGroup group, HashSet<Guid> ancestors)
@@ -1229,9 +1363,7 @@ public sealed class MainViewModel : ObservableObject
     {
         LogFontFamily = new FontFamily(settings.LogFontFamily);
         LogFontSize = settings.LogFontSize;
-        LogFontWeight = settings.LogFontBold ? FontWeights.Bold : FontWeights.Normal;
         LogFontStyle = settings.LogFontItalic ? FontStyles.Italic : FontStyles.Normal;
-        OnPropertyChanged(nameof(IsLogFontBold));
         OnPropertyChanged(nameof(IsLogFontItalic));
     }
 
@@ -1457,6 +1589,7 @@ public sealed class MainViewModel : ObservableObject
                 {
                     runtimeSnapshotsByCommandId.TryGetValue(command.Id, out var snapshot);
                     return new RunningCommandSummary(
+                        command.Id,
                         project.GroupId.HasValue && groupNamesById.TryGetValue(project.GroupId.Value, out var groupName)
                             ? groupName
                             : string.Empty,
@@ -1476,10 +1609,18 @@ public sealed class MainViewModel : ObservableObject
         }
 
         RunningCount = runningCommands.Count;
+        foreach (var item in EnumerateWorkspaceTreeItems())
+        {
+            if (item.Kind == WorkspaceTreeItemKind.Project && item.Project is not null)
+            {
+                item.UpdateRuntimeState(item.Project.Commands.Count(command => _processManager.IsRunning(command.Id)));
+            }
+        }
     }
 }
 
 public sealed record RunningCommandSummary(
+    Guid CommandId,
     string GroupName,
     string ProjectName,
     string CommandName,
@@ -1590,6 +1731,67 @@ public sealed class GroupTreeItem : ObservableObject
     {
         get => _isSelected;
         set => SetProperty(ref _isSelected, value);
+    }
+}
+
+public enum WorkspaceTreeItemKind
+{
+    All,
+    Ungrouped,
+    Group,
+    Project
+}
+
+public sealed class WorkspaceTreeItem : ObservableObject
+{
+    private bool _isSelected;
+    private int _projectCount;
+    private int _runningCommandCount;
+
+    public WorkspaceTreeItem(
+        string name,
+        WorkspaceTreeItemKind kind,
+        Guid? groupId = null,
+        ManagedProject? project = null,
+        IReadOnlyList<ManagedProject>? projects = null)
+    {
+        Name = name;
+        Kind = kind;
+        GroupId = groupId;
+        Project = project;
+        _projectCount = projects?.Count ?? 0;
+    }
+
+    public string Name { get; }
+    public WorkspaceTreeItemKind Kind { get; }
+    public Guid? GroupId { get; }
+    public ManagedProject? Project { get; }
+    public int ProjectCount => _projectCount;
+    public int CommandCount => Project?.Commands.Count ?? 0;
+    public int RunningCommandCount => _runningCommandCount;
+    public string StatusBadge => _runningCommandCount > 0 ? _runningCommandCount.ToString() : string.Empty;
+    public string RuntimeBadge => _runningCommandCount > 0 ? $"{_runningCommandCount}/{CommandCount}" : string.Empty;
+    public bool HasRunningCommands => _runningCommandCount > 0;
+    public ObservableCollection<WorkspaceTreeItem> Children { get; } = new();
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+
+    public void SetProjectCount(int count) => SetProperty(ref _projectCount, count);
+
+    public void UpdateRuntimeState(int runningCommandCount)
+    {
+        if (!SetProperty(ref _runningCommandCount, runningCommandCount))
+        {
+            return;
+        }
+
+        OnPropertyChanged(nameof(StatusBadge));
+        OnPropertyChanged(nameof(RuntimeBadge));
+        OnPropertyChanged(nameof(HasRunningCommands));
     }
 }
 
