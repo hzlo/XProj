@@ -64,6 +64,45 @@ internal sealed class NotesStore
         };
     }
 
+    public NoteDocument Rename(NoteDocument document, string displayName)
+    {
+        var normalizedName = displayName.Trim();
+        if (normalizedName.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedName = normalizedName[..^3].TrimEnd();
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedName) || normalizedName is "." or "..")
+        {
+            throw new InvalidOperationException("笔记名称不能为空。");
+        }
+
+        if (normalizedName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw new InvalidOperationException("笔记名称不能包含 \\/ : * ? \" < > | 等非法字符。");
+        }
+
+        var fileName = normalizedName + ".md";
+        var fullPath = Path.Combine(_notesDirectory, fileName);
+        if (string.Equals(document.FullPath, fullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return document;
+        }
+
+        if (File.Exists(fullPath))
+        {
+            throw new InvalidOperationException("已经存在同名笔记。");
+        }
+
+        File.Move(document.FullPath, fullPath);
+        return new NoteDocument
+        {
+            FileName = fileName,
+            FullPath = fullPath,
+            LastWriteTimeUtc = File.GetLastWriteTimeUtc(fullPath)
+        };
+    }
+
     public void Delete(NoteDocument document)
     {
         if (File.Exists(document.FullPath))
