@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\XProj.Plugin.Abstractions\XProj.Plugin.Abstractions.csproj" />
     <ProjectReference Include="..\XProj.Plugin.Notes\XProj.Plugin.Notes.csproj" />
+    <ProjectReference Include="..\XProj.Plugin.Wsl\XProj.Plugin.Wsl.csproj" />
     <Resource Include="Assets\icon.ico" />
     <Resource Include="Assets\logo_dark.png" />
     <Resource Include="Assets\logo_light.png" />

@@ -192,7 +192,8 @@ var persistedData = new AppData
         LogFontItalic = true,
         LogVisibleLineCount = 500,
         EnablePlugins = true,
-        EnableNotes = false
+        EnableNotes = false,
+        EnableWsl = true
     },
     Groups = new List<ProjectGroup> { parentGroup, childGroup },
     Projects = new List<ManagedProject>
@@ -255,8 +256,9 @@ if (loadedData.Groups.Count != 2 ||
     !loadedData.Settings.LogFontBold ||
     !loadedData.Settings.LogFontItalic ||
      loadedData.Settings.LogVisibleLineCount != 500 ||
-     !loadedData.Settings.EnablePlugins ||
-     loadedData.Settings.EnableNotes)
+      !loadedData.Settings.EnablePlugins ||
+      loadedData.Settings.EnableNotes ||
+      !loadedData.Settings.EnableWsl)
 {
     throw new InvalidOperationException("Nested group or log font persistence smoke test failed.");
 }
@@ -270,9 +272,10 @@ if (importedData.Settings.Theme != "Light" ||
     importedData.Settings.CloseBehavior != "Exit" ||
     importedData.Settings.UiFontFamily != "Microsoft YaHei UI" ||
     importedData.Settings.LogVisibleLineCount != 500 ||
-    !importedData.Settings.EnablePlugins ||
-    importedData.Settings.EnableNotes ||
-    importedData.Projects.Single().Name != "Persisted project")
+     !importedData.Settings.EnablePlugins ||
+     importedData.Settings.EnableNotes ||
+     !importedData.Settings.EnableWsl ||
+     importedData.Projects.Single().Name != "Persisted project")
 {
     throw new InvalidOperationException("Configuration export/import smoke test failed.");
 }

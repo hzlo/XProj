@@ -107,9 +107,10 @@ git push origin v1.1.0
 ```text
 XProj.Plugin.Abstractions/
 XProj.Plugin.Notes/
+XProj.Plugin.Wsl/
 ```
 
-插件通过 `XProj.Plugin.Abstractions` 中的 `IXProjPlugin` 和 `PluginHostContext` 接入宿主。当前版本采用解决方案内项目引用，插件在应用启动时由宿主创建；这为后续改造成独立 DLL 扫描加载保留了边界，但目前还不是运行时动态加载机制。
+插件通过 `XProj.Plugin.Abstractions` 中的 `IXProjPlugin` 和 `PluginHostContext` 接入宿主。当前版本采用解决方案内项目引用；插件由宿主管理，其中 WSL 插件会随插件页开关创建或卸载。这为后续改造成独立 DLL 扫描加载保留了边界，但目前还不是运行时动态加载机制。
 
 备忘录插件的数据保存在：
 
@@ -118,6 +119,8 @@ XProj.Plugin.Notes/
 ```
 
 每个 Markdown 文件对应一篇全局笔记，不绑定 XProj 项目。插件页面提供笔记列表、搜索、编辑、自动保存和 Markdown 预览。
+
+WSL 插件可在插件管理页启用。进入 WSL 页面时会读取发行版列表，但不会自动启动发行版；选择发行版后，可通过标题栏的“启动发行版”和“停止发行版”按钮单独控制它，停止操作会终止该发行版中的所有进程。插件还支持打开指定发行版终端（优先使用 Windows Terminal，未安装时回退到原生窗口）、执行命令并查看输出。WSL 插件数据不写入项目配置之外的业务数据。
 
 ## 许可证
 

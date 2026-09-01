@@ -2,8 +2,10 @@ using System.Windows;
 using System.Windows.Threading;
 using ProjectManager.Wpf.Infrastructure;
 using ProjectManager.Wpf.ViewModels;
+using ProjectManager.Wpf.Views;
 using XProj.Plugin.Abstractions;
 using XProj.Plugin.Notes;
+using XProj.Plugin.Wsl;
 using Forms = System.Windows.Forms;
 
 namespace ProjectManager.Wpf;
@@ -15,6 +17,9 @@ public partial class MainWindow
     private readonly UpdateInstaller _updateInstaller = new();
     private MainViewModel _viewModel = null!;
     private readonly IXProjPlugin _notesPlugin = new NotesPlugin();
+    private readonly IXProjPlugin _wslPlugin = new WslPlugin();
+    private readonly GlobalHotkeyRegistration _globalHotkey = new();
+    private WslView? _wslView;
     private readonly Forms.ContextMenuStrip _trayMenu = new();
     private Forms.NotifyIcon _trayIcon = null!;
     private readonly DispatcherTimer _runningPopoverCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(180) };
@@ -37,6 +42,7 @@ public partial class MainWindow
 
         _viewModel.LogDisplayUpdated += ViewModelOnLogDisplayUpdated;
         _viewModel.AbnormalProcessExited += ViewModelOnAbnormalProcessExited;
+        _globalHotkey.Pressed += GlobalHotkey_Pressed;
         StateChanged += (_, _) => RefreshDeferredLogDisplay();
         _runningPopoverCloseTimer.Tick += (_, _) => CloseRunningPopoverIfPointerLeft();
         _runningSummaryRefreshTimer.Tick += (_, _) => _viewModel.RefreshRunningSummaries();
@@ -44,6 +50,31 @@ public partial class MainWindow
         _runningSummaryRefreshTimer.Start();
 
         InitializeTray();
+    }
+
+    private async Task UnloadWslPluginAsync()
+    {
+        if (_wslView is not null)
+        {
+            await _wslView.ShutdownAsync();
+        }
+
+        WslContentHost.Content = null;
+        _wslView = null;
+    }
+
+    private void EnsureWslPluginView()
+    {
+        if (_wslView is not null)
+        {
+            return;
+        }
+
+        _wslView = (WslView)_wslPlugin.CreateView(new PluginHostContext(
+            _viewModel.DataDirectory,
+            _viewModel.SetStatus,
+            (title, message, primaryText) => AppDialog.Confirm(this, title, message, primaryText)));
+        WslContentHost.Content = _wslView;
     }
 
     private void InitializeTray()

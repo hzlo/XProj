@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using ProjectManager.Wpf.Infrastructure;
@@ -56,6 +57,7 @@ public partial class SettingsDialog : Window
         DarkForegroundTextBox.Text = settings.DarkForegroundColor;
         DarkBackgroundTextBox.Text = settings.DarkBackgroundColor;
         CloseBehaviorComboBox.SelectedIndex = settings.CloseBehavior == "Exit" ? 1 : 0;
+        GlobalHotkeyTextBox.Text = settings.GlobalHotkey;
         UiFontComboBox.SelectedItem = FindFont(settings.UiFontFamily);
         UiFontSizeComboBox.SelectedItem = Math.Round(settings.UiFontSize);
         LogFontComboBox.SelectedItem = FindFont(settings.LogFontFamily);
@@ -73,6 +75,30 @@ public partial class SettingsDialog : Window
     }
 
     private void SettingsSelectionChanged(object sender, SelectionChangedEventArgs e) => PreviewSettings();
+
+    private void SettingsTextChanged(object sender, TextChangedEventArgs e) => PreviewSettings();
+
+    private void GlobalHotkeyTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers == ModifierKeys.None || key == Key.Tab)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if (GlobalHotkey.TryCreateGesture(Keyboard.Modifiers, key, out var gesture, out var error))
+        {
+            GlobalHotkeyTextBox.Text = gesture;
+            GlobalHotkeyTextBox.SelectAll();
+            ValidationText.Text = string.Empty;
+            return;
+        }
+
+        ValidationText.Text = error ?? "该按键不能作为全局快捷键。";
+    }
+
+    private void ClearGlobalHotkey_Click(object sender, RoutedEventArgs e) => GlobalHotkeyTextBox.Clear();
 
     private void UpdateThemeColorPickers()
     {
@@ -270,6 +296,15 @@ public partial class SettingsDialog : Window
             return false;
         }
 
+        if (!GlobalHotkey.TryNormalizeGesture(GlobalHotkeyTextBox.Text, out var globalHotkey, out var hotkeyError))
+        {
+            if (validateContrast)
+            {
+                ValidationText.Text = hotkeyError ?? "全局快捷键格式无效。";
+            }
+            return false;
+        }
+
         settings = new AppSettings
         {
             Theme = ThemeComboBox.SelectedIndex == 1 ? "Light" : "Dark",
@@ -278,6 +313,7 @@ public partial class SettingsDialog : Window
             DarkForegroundColor = darkForeground,
             DarkBackgroundColor = darkBackground,
             CloseBehavior = CloseBehaviorComboBox.SelectedIndex == 1 ? "Exit" : "MinimizeToTray",
+            GlobalHotkey = globalHotkey,
             UiFontFamily = uiFont.Source,
             UiFontSize = uiFontSize,
             LogFontFamily = logFont.Source,
@@ -286,7 +322,8 @@ public partial class SettingsDialog : Window
             LogFontItalic = LogItalicToggle.IsChecked == true,
             LogVisibleLineCount = logVisibleLineCount,
             EnablePlugins = EnablePluginsToggle.IsChecked == true,
-            EnableNotes = _settings.EnableNotes
+            EnableNotes = _settings.EnableNotes,
+            EnableWsl = _settings.EnableWsl
         };
         if (validateContrast)
         {

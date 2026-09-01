@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Input;
 using ProjectManager.Wpf.Infrastructure;
 
 namespace ProjectManager.Wpf;
@@ -18,7 +19,8 @@ public partial class MainWindow : Window
         {
             await _viewModel.InitializeAsync();
             ThemeManager.Apply(_viewModel.CurrentSettings);
-            ApplyPluginShell(_viewModel.EnablePlugins);
+            await ApplyPluginShellAsync(_viewModel.EnablePlugins);
+            RegisterGlobalHotkey(_viewModel.CurrentSettings.GlobalHotkey);
             _ = CheckForUpdatesAsync(this, showUpToDateMessage: false);
         }
         catch (Exception exception)
@@ -78,6 +80,39 @@ public partial class MainWindow : Window
     private void Window_Deactivated(object? sender, EventArgs e)
     {
         CloseRunningPopover();
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Alt)
+        {
+            return;
+        }
+
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var index = key switch
+        {
+            >= Key.D1 and <= Key.D9 => key - Key.D1,
+            >= Key.NumPad1 and <= Key.NumPad9 => key - Key.NumPad1,
+            _ => -1
+        };
+        if (index < 0)
+        {
+            return;
+        }
+
+        var pages = new (Func<bool> enabled, Action show)[]
+        {
+            (() => true, ShowProjectPage),
+            (() => _viewModel.EnablePlugins && _viewModel.EnableNotes, ShowNotesPage),
+            (() => _viewModel.EnablePlugins && _viewModel.EnableWsl, ShowWslPage),
+            (() => _viewModel.EnablePlugins, ShowPluginManagementPage)
+        };
+        if (index < pages.Length && pages[index].enabled())
+        {
+            pages[index].show();
+            e.Handled = true;
+        }
     }
 
 }

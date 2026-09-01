@@ -225,7 +225,9 @@ public partial class MainWindow : Window
         _isExiting = true;
         try
         {
+            await UnloadWslPluginAsync();
             await _viewModel.ShutdownAsync();
+            _globalHotkey.Dispose();
             _trayIcon.Visible = false;
             var trayImage = _trayIcon.Icon;
             _trayIcon.Dispose();

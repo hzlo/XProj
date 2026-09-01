@@ -198,6 +198,7 @@ public sealed class MainViewModel : ObservableObject
     public AppSettings CurrentSettings => _data.Settings.Clone();
     public bool EnablePlugins => _data.Settings.EnablePlugins;
     public bool EnableNotes => _data.Settings.EnableNotes;
+    public bool EnableWsl => _data.Settings.EnableWsl;
 
     public void SetStatus(string text) => StatusText = text;
 
@@ -1380,6 +1381,10 @@ public sealed class MainViewModel : ObservableObject
         if (settings.CloseBehavior is not ("MinimizeToTray" or "Exit"))
         {
             throw new InvalidOperationException("请选择有效的窗口关闭行为。");
+        }
+        if (!GlobalHotkey.TryNormalizeGesture(settings.GlobalHotkey, out _, out _))
+        {
+            throw new InvalidOperationException("请选择有效的全局快捷键。");
         }
         if (settings.LogVisibleLineCount is not (100 or 300 or 500 or 1000))
         {

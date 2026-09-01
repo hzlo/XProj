@@ -344,6 +344,7 @@ public partial class MainWindow : Window
             {
                 var settings = await _viewModel.ImportConfigurationAsync(filePath);
                 ThemeManager.Apply(settings);
+                RegisterGlobalHotkey(settings.GlobalHotkey);
                 return settings;
             },
             settings =>
@@ -362,7 +363,8 @@ public partial class MainWindow : Window
             {
                 await _viewModel.UpdateSettingsAsync(dialog.Result);
                 ThemeManager.Apply(dialog.Result);
-                ApplyPluginShell(dialog.Result.EnablePlugins);
+                await ApplyPluginShellAsync(dialog.Result.EnablePlugins);
+                RegisterGlobalHotkey(dialog.Result.GlobalHotkey);
             });
             return;
         }

@@ -127,6 +127,11 @@ public sealed class JsonDataStore
         {
             data.Settings.CloseBehavior = "MinimizeToTray";
         }
+        if (!GlobalHotkey.TryNormalizeGesture(data.Settings.GlobalHotkey, out var globalHotkey, out _))
+        {
+            globalHotkey = AppSettings.DefaultGlobalHotkey;
+        }
+        data.Settings.GlobalHotkey = globalHotkey;
         if (string.IsNullOrWhiteSpace(data.Settings.UiFontFamily))
         {
             data.Settings.UiFontFamily = "Microsoft YaHei UI";

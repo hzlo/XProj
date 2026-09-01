@@ -93,11 +93,11 @@
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="26,8,26,6">
                     <TextBlock Text="外观" Style="{StaticResource SectionTitle}" Margin="2,0,0,10" />
-                    <Border Style="{StaticResource CardBorder}" Padding="18">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="250" />
+                     <Border Style="{StaticResource CardBorder}" Padding="18">
+                         <Grid>
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="*" />
+                                 <ColumnDefinition Width="250" />
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="颜色模式" Style="{StaticResource FieldLabel}" Margin="0" />
@@ -211,11 +211,39 @@
                                 <TextBlock Text="关闭窗口时" Style="{StaticResource FieldLabel}" Margin="0" />
                              <TextBlock Text="完全退出会停止所有正在运行的命令" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
                             </StackPanel>
-                            <ComboBox x:Name="CloseBehaviorComboBox" Grid.Column="1" SelectionChanged="SettingsSelectionChanged" />
-                        </Grid>
-                    </Border>
+                             <ComboBox x:Name="CloseBehaviorComboBox" Grid.Column="1" SelectionChanged="SettingsSelectionChanged" />
+                         </Grid>
+                     </Border>
 
-                    <TextBlock Text="插件" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
+                     <Border Style="{StaticResource CardBorder}" Padding="18" Margin="0,10,0,0">
+                         <Grid>
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="*" />
+                                 <ColumnDefinition Width="250" />
+                             </Grid.ColumnDefinitions>
+                             <StackPanel VerticalAlignment="Center">
+                                 <TextBlock Text="全局快捷键" Style="{StaticResource FieldLabel}" Margin="0" />
+                                 <TextBlock Text="可用快捷键呼出或隐藏主界面" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
+                             </StackPanel>
+                             <Grid Grid.Column="1">
+                                 <Grid.ColumnDefinitions>
+                                     <ColumnDefinition Width="*" />
+                                     <ColumnDefinition Width="Auto" />
+                                 </Grid.ColumnDefinitions>
+                                 <TextBox x:Name="GlobalHotkeyTextBox"
+                                          Tag="例如 Ctrl+Alt+Space"
+                                          PreviewKeyDown="GlobalHotkeyTextBox_PreviewKeyDown"
+                                          TextChanged="SettingsTextChanged" />
+                                 <Button Grid.Column="1" Style="{StaticResource IconButton}" Width="38" Height="38" Margin="10,0,0,0"
+                                         Click="ClearGlobalHotkey_Click" ToolTip="关闭全局快捷键"
+                                         AutomationProperties.Name="关闭全局快捷键">
+                                     <mi:MaterialIcon Kind="KeyboardOffOutline" Width="17" Height="17" />
+                                 </Button>
+                             </Grid>
+                         </Grid>
+                     </Border>
+
+                     <TextBlock Text="插件" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
                     <Border Style="{StaticResource CardBorder}" Padding="18">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -226,11 +254,11 @@
                                 <TextBlock Text="启用插件" Style="{StaticResource FieldLabel}" Margin="0" />
                                  <TextBlock Text="启用后，主界面顶部会显示插件管理和已启用的插件入口" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
                             </StackPanel>
-                            <ToggleButton x:Name="EnablePluginsToggle" Grid.Column="1" Style="{StaticResource PluginSwitch}" Margin="0" ToolTip="启用或关闭插件" AutomationProperties.Name="启用或关闭插件" />
-                        </Grid>
-                    </Border>
+                             <ToggleButton x:Name="EnablePluginsToggle" Grid.Column="1" Style="{StaticResource PluginSwitch}" Margin="0" ToolTip="启用或关闭插件" AutomationProperties.Name="启用或关闭插件" />
+                         </Grid>
+                     </Border>
 
-                    <TextBlock Text="实时日志" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
+                     <TextBlock Text="实时日志" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
                     <Border Style="{StaticResource CardBorder}" Padding="18">
                         <Grid>
                             <Grid.ColumnDefinitions>
