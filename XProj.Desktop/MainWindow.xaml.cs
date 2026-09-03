@@ -101,13 +101,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        var pages = new (Func<bool> enabled, Action show)[]
+var pages = new (Func<bool> enabled, Action show)[]
         {
-            (() => true, ShowProjectPage),
-            (() => _viewModel.EnablePlugins && _viewModel.EnableNotes, ShowNotesPage),
-            (() => _viewModel.EnablePlugins && _viewModel.EnableWsl, ShowWslPage),
-            (() => _viewModel.EnablePlugins, ShowPluginManagementPage)
+            (() => true, ShowProjectPage)
         };
+        var entries = new List<(Func<bool> enabled, Action show)>();
+        foreach (var registration in _plugins)
+        {
+            entries.Add((() => _viewModel.EnablePlugins && registration.IsEnabled(), () => ShowPluginPage(registration)));
+        }
+
+        entries.Add((() => _viewModel.EnablePlugins, ShowPluginManagementPage));
+        pages = entries.ToArray();
         if (index < pages.Length && pages[index].enabled())
         {
             pages[index].show();

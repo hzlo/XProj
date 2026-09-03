@@ -1,0 +1,47 @@
+<UserControl x:Class="XProj.Plugin.JsonConverter.JsonConverterView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
+             Background="Transparent"
+             UseLayoutRounding="True">
+    <UserControl.Resources>
+        <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Padding" Value="11,7" />
+            <Setter Property="Margin" Value="3,0" />
+        </Style>
+    </UserControl.Resources>
+    <Grid Margin="22,18,22,20" AllowDrop="True">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="10" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <Grid Margin="2,0">
+            <StackPanel Orientation="Horizontal">
+                <Border Width="42" Height="42" Background="{DynamicResource SelectedBrush}" CornerRadius="12"><mi:MaterialIcon Kind="CodeJson" Width="21" Height="21" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                <StackPanel Margin="13,0,0,0" VerticalAlignment="Center"><TextBlock Text="JSON 工具" Style="{DynamicResource PageTitle}" FontWeight="SemiBold" /><TextBlock Text="格式化数据、整理字段，或处理嵌套的 JSON 字符串" Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,0,0" /></StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Style="{StaticResource ToolButton}" Click="NewTab_Click"><StackPanel Orientation="Horizontal"><mi:MaterialIcon Kind="Plus" Width="15" Height="15" Margin="0,0,5,0" /><TextBlock Text="新标签" /></StackPanel></Button>
+                <Button Style="{StaticResource ToolButton}" Click="OpenFile_Click"><StackPanel Orientation="Horizontal"><mi:MaterialIcon Kind="FileImportOutline" Width="15" Height="15" Margin="0,0,5,0" /><TextBlock Text="打开" /></StackPanel></Button>
+                <Button Style="{StaticResource ToolButton}" Click="SaveFile_Click"><StackPanel Orientation="Horizontal"><mi:MaterialIcon Kind="ContentSaveOutline" Width="15" Height="15" Margin="0,0,5,0" /><TextBlock Text="保存" /></StackPanel></Button>
+                <Button Style="{DynamicResource ActionChip}" ToolTip="复制结果" Click="Copy_Click"><mi:MaterialIcon Kind="ContentCopy" Width="16" Height="16" /></Button>
+            </StackPanel>
+        </Grid>
+        <Border Grid.Row="2" Style="{DynamicResource CardBorder}" Padding="0" ClipToBounds="True">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="42" /><RowDefinition Height="1" /><RowDefinition Height="*" /><RowDefinition Height="48" /></Grid.RowDefinitions>
+                <TabControl x:Name="EditorTabs" Grid.Row="0" Background="Transparent" BorderThickness="0" Padding="8,6,8,6" SelectionChanged="EditorTabs_SelectionChanged" />
+                <Border Grid.Row="1" Background="{DynamicResource SoftBorderBrush}" />
+                <Grid Grid.Row="2" Margin="14,12">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="300" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" MinWidth="300" /></Grid.ColumnDefinitions>
+                    <Border Style="{DynamicResource InsetCardBorder}" Padding="0" ClipToBounds="True" AllowDrop="True">
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="38" /><RowDefinition Height="1" /><RowDefinition Height="*" /></Grid.RowDefinitions><Grid Margin="14,0"><TextBlock Text="输入 JSON" Style="{DynamicResource SectionTitle}" FontSize="13" VerticalAlignment="Center" /><TextBlock x:Name="InputStatsText" Text="0 字符" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" /></Grid><Border Grid.Row="1" Background="{DynamicResource SoftBorderBrush}" /><TextBox x:Name="InputTextBox" Grid.Row="2" BorderThickness="0" Background="Transparent" Padding="16" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="{DynamicResource LogFontFamily}" FontSize="{DynamicResource LogFontSize}" VerticalContentAlignment="Top" Tag="粘贴 JSON 到这里，或拖入 .json 文件" TextChanged="InputTextBox_TextChanged" AllowDrop="True" /></Grid>
+                    </Border>
+                    <Border Grid.Column="2" Style="{DynamicResource InsetCardBorder}" Padding="0" ClipToBounds="True">
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="38" /><RowDefinition Height="1" /><RowDefinition Height="*" /></Grid.RowDefinitions><Grid Margin="14,0"><TextBlock Text="处理结果" Style="{DynamicResource SectionTitle}" FontSize="13" VerticalAlignment="Center" /><TextBlock x:Name="ResultStatsText" Text="0 字符" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" /></Grid><Border Grid.Row="1" Background="{DynamicResource SoftBorderBrush}" /><TextBox x:Name="ResultTextBox" Grid.Row="2" BorderThickness="0" Background="Transparent" Padding="16" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="{DynamicResource LogFontFamily}" FontSize="{DynamicResource LogFontSize}" VerticalContentAlignment="Top" IsReadOnly="True" Tag="处理结果会显示在这里" TextChanged="ResultTextBox_TextChanged" /></Grid>
+                    </Border>
+                </Grid>
+                <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <StackPanel Orientation="Horizontal" Margin="12,7"><Button Style="{DynamicResource PrimaryButton}" Click="Format_Click"><StackPanel Orientation="Horizontal"><mi:MaterialIcon Kind="FormatIndentIncrease" Width="15" Height="15" Margin="0,0,5,0" /><TextBlock Text="格式化" Foreground="White" /></StackPanel></Button><Button Style="{StaticResource ToolButton}" Click="Compact_Click">压缩</Button><Button Style="{StaticResource ToolButton}" Click="Sort_Click">字段排序</Button><Button Style="{StaticResource ToolButton}" Click="Expand_Click">展开内嵌 JSON</Button><Button Style="{StaticResource ToolButton}" Click="Validate_Click"><StackPanel Orientation="Horizontal"><mi:MaterialIcon Kind="CheckCircleOutline" Width="15" Height="15" Margin="0,0,5,0" /><TextBlock Text="校验" /></StackPanel></Button><Button Style="{StaticResource ToolButton}" Click="Escape_Click">转义</Button><Button Style="{StaticResource ToolButton}" Click="Unescape_Click">去转义</Button><Button Style="{StaticResource ToolButton}" Click="Unicode_Click">Unicode 解码</Button><Button Style="{StaticResource ToolButton}" Click="ReplaceInput_Click"><StackPanel Orientation="Horizontal"><mi:MaterialIcon Kind="ArrowDownBoldBoxOutline" Width="15" Height="15" Margin="0,0,5,0" /><TextBlock Text="结果→输入" /></StackPanel></Button></StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

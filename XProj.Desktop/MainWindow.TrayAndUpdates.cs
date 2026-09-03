@@ -225,7 +225,10 @@ public partial class MainWindow : Window
         _isExiting = true;
         try
         {
-            await UnloadWslPluginAsync();
+            foreach (var registration in _plugins)
+            {
+                await UnloadPluginAsync(registration);
+            }
             await _viewModel.ShutdownAsync();
             _globalHotkey.Dispose();
             _trayIcon.Visible = false;

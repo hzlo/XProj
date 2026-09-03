@@ -8,6 +8,7 @@ public sealed class WslPlugin : IXProjPlugin
     public string Id => "wsl";
     public string Name => "WSL";
     public string Description => "查看 WSL 发行版并运行命令";
+    public Material.Icons.MaterialIconKind Icon => Material.Icons.MaterialIconKind.Linux;
 
     public FrameworkElement CreateView(PluginHostContext context) => new WslView(context);
 }

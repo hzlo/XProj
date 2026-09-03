@@ -49,7 +49,7 @@ public partial class SettingsDialog : Window
 
     public AppSettings? Result { get; private set; }
 
-    private void ApplySettingsToControls(AppSettings settings)
+private void ApplySettingsToControls(AppSettings settings)
     {
         ThemeComboBox.SelectedIndex = settings.Theme == "Light" ? 1 : 0;
         LightForegroundTextBox.Text = settings.LightForegroundColor;
@@ -65,6 +65,7 @@ public partial class SettingsDialog : Window
         LogItalicToggle.IsChecked = settings.LogFontItalic;
         LogVisibleLineCountComboBox.SelectedItem = settings.LogVisibleLineCount;
         EnablePluginsToggle.IsChecked = settings.EnablePlugins;
+        EnableJsonConverterToggle.IsChecked = settings.EnableJsonConverter;
         UpdatePreviews();
     }
 
@@ -305,7 +306,7 @@ public partial class SettingsDialog : Window
             return false;
         }
 
-        settings = new AppSettings
+settings = new AppSettings
         {
             Theme = ThemeComboBox.SelectedIndex == 1 ? "Light" : "Dark",
             LightForegroundColor = lightForeground,
@@ -323,7 +324,9 @@ public partial class SettingsDialog : Window
             LogVisibleLineCount = logVisibleLineCount,
             EnablePlugins = EnablePluginsToggle.IsChecked == true,
             EnableNotes = _settings.EnableNotes,
-            EnableWsl = _settings.EnableWsl
+            EnableWsl = _settings.EnableWsl,
+            EnableTranslator = _settings.EnableTranslator,
+            EnableJsonConverter = EnableJsonConverterToggle.IsChecked == true
         };
         if (validateContrast)
         {

@@ -196,9 +196,12 @@ public sealed class MainViewModel : ObservableObject
     public string LogFontSummary => $"{LogFontFamily.Source} · {LogFontSize * 72 / 96:0.##} pt";
     public bool IsLogFontItalic => LogFontStyle == FontStyles.Italic;
     public AppSettings CurrentSettings => _data.Settings.Clone();
-    public bool EnablePlugins => _data.Settings.EnablePlugins;
+public bool EnablePlugins => _data.Settings.EnablePlugins;
     public bool EnableNotes => _data.Settings.EnableNotes;
     public bool EnableWsl => _data.Settings.EnableWsl;
+    public bool EnableTranslator => _data.Settings.EnableTranslator;
+    public bool EnableJsonConverter => _data.Settings.EnableJsonConverter;
+    public bool EnableDataSync => _data.Settings.EnableDataSync;
 
     public void SetStatus(string text) => StatusText = text;
 

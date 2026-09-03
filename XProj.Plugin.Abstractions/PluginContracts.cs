@@ -28,6 +28,7 @@ public interface IXProjPlugin
     string Id { get; }
     string Name { get; }
     string Description { get; }
+    Material.Icons.MaterialIconKind Icon { get; }
 
     FrameworkElement CreateView(PluginHostContext context);
 }

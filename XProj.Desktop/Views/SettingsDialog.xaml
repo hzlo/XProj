@@ -243,22 +243,37 @@
                          </Grid>
                      </Border>
 
-                     <TextBlock Text="插件" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
-                    <Border Style="{StaticResource CardBorder}" Padding="18">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="启用插件" Style="{StaticResource FieldLabel}" Margin="0" />
-                                 <TextBlock Text="启用后，主界面顶部会显示插件管理和已启用的插件入口" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
-                            </StackPanel>
-                             <ToggleButton x:Name="EnablePluginsToggle" Grid.Column="1" Style="{StaticResource PluginSwitch}" Margin="0" ToolTip="启用或关闭插件" AutomationProperties.Name="启用或关闭插件" />
-                         </Grid>
-                     </Border>
+<TextBlock Text="插件" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
+                     <Border Style="{StaticResource CardBorder}" Padding="18">
+                         <Grid>
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="*" />
+                                 <ColumnDefinition Width="Auto" />
+                             </Grid.ColumnDefinitions>
+                             <StackPanel VerticalAlignment="Center">
+                                 <TextBlock Text="启用插件" Style="{StaticResource FieldLabel}" Margin="0" />
+                                  <TextBlock Text="启用后，主界面顶部会显示插件管理和已启用的插件入口" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
+                             </StackPanel>
+                              <ToggleButton x:Name="EnablePluginsToggle" Grid.Column="1" Style="{StaticResource PluginSwitch}" Margin="0" ToolTip="启用或关闭插件" AutomationProperties.Name="启用或关闭插件" />
+                          </Grid>
+                      </Border>
 
-                     <TextBlock Text="实时日志" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
+                      <TextBlock Text="JSON 工具" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
+                     <Border Style="{StaticResource CardBorder}" Padding="18">
+                         <Grid>
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="*" />
+                                 <ColumnDefinition Width="Auto" />
+                             </Grid.ColumnDefinitions>
+                             <StackPanel VerticalAlignment="Center">
+                                 <TextBlock Text="启用 JSON 工具" Style="{StaticResource FieldLabel}" Margin="0" />
+                                  <TextBlock Text="启用后，侧栏会显示 JSON 格式化、排序、压缩等工具" Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
+                             </StackPanel>
+                              <ToggleButton x:Name="EnableJsonConverterToggle" Grid.Column="1" Style="{StaticResource PluginSwitch}" Margin="0" ToolTip="启用或关闭 JSON 工具" AutomationProperties.Name="启用或关闭 JSON 工具" />
+                          </Grid>
+                      </Border>
+
+                      <TextBlock Text="实时日志" Style="{StaticResource SectionTitle}" Margin="2,22,0,10" />
                     <Border Style="{StaticResource CardBorder}" Padding="18">
                         <Grid>
                             <Grid.ColumnDefinitions>

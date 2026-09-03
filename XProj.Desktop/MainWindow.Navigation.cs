@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using XProj.Plugin.Abstractions;
 
 namespace ProjectManager.Wpf;
 
@@ -10,11 +12,19 @@ public partial class MainWindow
     private async Task ApplyPluginShellAsync(bool enabled)
     {
         PluginTopNavigation.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
-        NotesNavigationButton.Visibility = enabled && _viewModel.EnableNotes ? Visibility.Visible : Visibility.Collapsed;
-        WslNavigationButton.Visibility = enabled && _viewModel.EnableWsl ? Visibility.Visible : Visibility.Collapsed;
-        if (!enabled || !_viewModel.EnableWsl)
+        foreach (var registration in _plugins)
         {
-            await UnloadWslPluginAsync();
+            if (registration.NavButton is not null)
+            {
+                registration.NavButton.Visibility = enabled && registration.IsEnabled()
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (!enabled || !registration.IsEnabled())
+            {
+                await UnloadPluginAsync(registration);
+            }
         }
 
         if (!enabled)
@@ -23,8 +33,7 @@ public partial class MainWindow
             return;
         }
 
-        if ((NotesPage.Visibility == Visibility.Visible && !_viewModel.EnableNotes) ||
-            (WslPage.Visibility == Visibility.Visible && !_viewModel.EnableWsl))
+        if (_plugins.Any(registration => registration.Page!.Visibility == Visibility.Visible && !registration.IsEnabled()))
         {
             ShowPluginManagementPage();
         }
@@ -32,21 +41,19 @@ public partial class MainWindow
 
     private void ShowProjectPage() => ShowPage(ProjectPage, ProjectNavigationButton);
 
-    private void ShowNotesPage()
+    private async void ShowPluginPage(PluginRegistration registration)
     {
-        if (_viewModel.EnablePlugins && _viewModel.EnableNotes)
+        if (!_viewModel.EnablePlugins || !registration.IsEnabled() || registration.NavButton is null)
         {
-            ShowPage(NotesPage, NotesNavigationButton);
+            return;
         }
-    }
 
-    private async void ShowWslPage()
-    {
-        if (_viewModel.EnablePlugins && _viewModel.EnableWsl)
+        registration.View ??= registration.Plugin.CreateView(CreatePluginContext());
+        registration.Host!.Content = registration.View;
+        ShowPage(registration.Page!, registration.NavButton);
+        if (registration.OnShownAsync is not null)
         {
-            EnsureWslPluginView();
-            ShowPage(WslPage, WslNavigationButton);
-            await _wslView!.InitializeAsync();
+            await registration.OnShownAsync(registration);
         }
     }
 
@@ -54,8 +61,14 @@ public partial class MainWindow
     {
         if (_viewModel.EnablePlugins)
         {
-            EnableNotesToggle.IsChecked = _viewModel.EnableNotes;
-            EnableWslToggle.IsChecked = _viewModel.EnableWsl;
+            foreach (var registration in _plugins)
+            {
+                if (registration.ManageToggle is not null)
+                {
+                    registration.ManageToggle.IsChecked = registration.IsEnabled();
+                }
+            }
+
             ShowPage(PluginManagementPage, PluginManagementNavigationButton);
         }
     }
@@ -63,11 +76,15 @@ public partial class MainWindow
     private void ShowPage(UIElement page, Button activeButton)
     {
         ProjectPage.Visibility = ReferenceEquals(page, ProjectPage) ? Visibility.Visible : Visibility.Collapsed;
-        NotesPage.Visibility = ReferenceEquals(page, NotesPage) ? Visibility.Visible : Visibility.Collapsed;
-        WslPage.Visibility = ReferenceEquals(page, WslPage) ? Visibility.Visible : Visibility.Collapsed;
         PluginManagementPage.Visibility = ReferenceEquals(page, PluginManagementPage) ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var registration in _plugins)
+        {
+            registration.Page!.Visibility = ReferenceEquals(registration.Page, page) ? Visibility.Visible : Visibility.Collapsed;
+            registration.NavButton?.ClearValue(BackgroundProperty);
+            registration.NavButton?.ClearValue(ForegroundProperty);
+        }
 
-        foreach (var button in new[] { ProjectNavigationButton, NotesNavigationButton, WslNavigationButton, PluginManagementNavigationButton })
+        foreach (var button in new[] { ProjectNavigationButton, PluginManagementNavigationButton })
         {
             button.ClearValue(BackgroundProperty);
             button.ClearValue(ForegroundProperty);
@@ -77,27 +94,34 @@ public partial class MainWindow
         activeButton.Foreground = FindResource("AccentBrush") as Brush;
     }
 
-    private void ProjectNavigation_Click(object sender, RoutedEventArgs e) => ShowProjectPage();
-    private void NotesNavigation_Click(object sender, RoutedEventArgs e) => ShowNotesPage();
-    private void WslNavigation_Click(object sender, RoutedEventArgs e) => ShowWslPage();
-    private void PluginManagementNavigation_Click(object sender, RoutedEventArgs e) => ShowPluginManagementPage();
-
-    private async void EnableNotesToggle_Click(object sender, RoutedEventArgs e)
+    private async Task UnloadPluginAsync(PluginRegistration registration)
     {
-        var settings = _viewModel.CurrentSettings;
-        settings.EnableNotes = EnableNotesToggle.IsChecked == true;
-        await ExecuteAsync(async () =>
+        if (registration.View is null)
         {
-            await _viewModel.UpdateSettingsAsync(settings);
-            await ApplyPluginShellAsync(_viewModel.EnablePlugins);
-            ShowPluginManagementPage();
-        });
+            return;
+        }
+
+        if (registration.OnUnloadAsync is not null)
+        {
+            await registration.OnUnloadAsync(registration);
+        }
+
+        registration.Host!.Content = null;
+        registration.View = null;
     }
 
-    private async void EnableWslToggle_Click(object sender, RoutedEventArgs e)
+    private void ProjectNavigation_Click(object sender, RoutedEventArgs e) => ShowProjectPage();
+    private void PluginManagementNavigation_Click(object sender, RoutedEventArgs e) => ShowPluginManagementPage();
+
+    private async void PluginManageToggle_Click(object sender, RoutedEventArgs e)
     {
+        if (sender is not ToggleButton { Tag: PluginRegistration registration })
+        {
+            return;
+        }
+
         var settings = _viewModel.CurrentSettings;
-        settings.EnableWsl = EnableWslToggle.IsChecked == true;
+        registration.WriteEnabled(settings, registration.ManageToggle?.IsChecked == true);
         await ExecuteAsync(async () =>
         {
             await _viewModel.UpdateSettingsAsync(settings);
