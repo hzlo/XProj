@@ -19,7 +19,8 @@
         Deactivated="Window_Deactivated"
         Closing="Window_Closing"
         StateChanged="Window_StateChanged"
-        PreviewKeyDown="Window_PreviewKeyDown">
+        PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewMouseWheel="Window_PreviewMouseWheel">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="46" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -237,7 +238,24 @@
                         </Grid>
                     </Grid>
                 </Grid>
-                <Border x:Name="PluginManagementPage" Grid.Column="1" Grid.ColumnSpan="2" Visibility="Collapsed" Background="{DynamicResource InputBrush}" Padding="28"><StackPanel><TextBlock Text="插件管理" Style="{StaticResource PageTitle}" /><TextBlock Text="选择要在侧栏启用的插件" Foreground="{DynamicResource MutedTextBrush}" Margin="0,7,0,22" /></StackPanel></Border>
+                <Border x:Name="PluginManagementPage" Grid.Column="1" Grid.ColumnSpan="2" Visibility="Collapsed" Background="{DynamicResource InputBrush}" Padding="28">
+                    <StackPanel>
+                        <TextBlock Text="插件管理" Style="{StaticResource PageTitle}" />
+                        <TextBlock Text="插件按独立版本安装和更新，变更会在重启 XProj 后生效" Foreground="{DynamicResource MutedTextBrush}" Margin="0,7,0,16" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="PluginIdTextBox" Tag="插件 ID，例如 notes" />
+                            <Button Grid.Column="1" Content="安装 / 更新" Margin="10,0,0,0" Click="PluginInstallOrUpdate_Click" />
+                            <Button Grid.Column="2" Content="检查已安装更新" Margin="10,0,0,0" Click="PluginUpdateAll_Click" />
+                        </Grid>
+                        <TextBlock x:Name="PluginManagementStatusText" Text="正在加载插件..." Foreground="{DynamicResource MutedTextBrush}" Margin="0,10,0,12" />
+                    </StackPanel>
+                </Border>
             </Grid>
 
             <Grid x:Name="StatusBar" Grid.Row="2" Margin="17,0" HorizontalAlignment="Stretch"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Ellipse Width="5" Height="5" Fill="{DynamicResource AccentBrush}" Margin="0,0,8,0" /><TextBlock Text="{Binding StatusText, Mode=OneWay}" Foreground="{DynamicResource MutedTextBrush}" /></StackPanel><TextBlock Text="{Binding RunningCount, Mode=OneWay, StringFormat= · {0} 个命令运行中}" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" /></Grid>

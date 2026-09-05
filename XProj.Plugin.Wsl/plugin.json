@@ -1,0 +1,11 @@
+{
+  "id": "wsl",
+  "name": "WSL",
+  "description": "查看 WSL 发行版并运行命令",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entryAssembly": "XProj.Plugin.Wsl.dll",
+  "entryType": "XProj.Plugin.Wsl.WslPlugin",
+  "minHostVersion": "2.1.1",
+  "defaultEnabled": false
+}

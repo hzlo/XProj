@@ -118,6 +118,7 @@ public sealed class JsonDataStore
     private static AppData Normalize(AppData data)
     {
         data.Settings ??= new AppSettings();
+        MigrateLegacyPluginStates(data.Settings);
         if (data.Settings.Theme is not ("Dark" or "Light"))
         {
             data.Settings.Theme = "Dark";
@@ -180,5 +181,34 @@ public sealed class JsonDataStore
         }
 
         return data;
+    }
+
+    private static void MigrateLegacyPluginStates(AppSettings settings)
+    {
+        var legacyProperties = settings.LegacyProperties;
+        settings.LegacyProperties = null;
+        settings.PluginStates = new Dictionary<string, bool>(settings.PluginStates ?? new Dictionary<string, bool>(), StringComparer.OrdinalIgnoreCase);
+        if (legacyProperties is null)
+        {
+            return;
+        }
+
+        var legacyPluginIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["enableNotes"] = "notes",
+            ["enableWsl"] = "wsl",
+            ["enableJsonConverter"] = "json-converter",
+            ["enableTranslator"] = "translator",
+            ["enableDataSync"] = "data-sync"
+        };
+        foreach (var (legacyName, pluginId) in legacyPluginIds)
+        {
+            if (!settings.PluginStates.ContainsKey(pluginId) &&
+                legacyProperties.TryGetValue(legacyName, out var value) &&
+                value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                settings.PluginStates[pluginId] = value.GetBoolean();
+            }
+        }
     }
 }

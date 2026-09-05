@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using ProjectManager.Wpf.Infrastructure;
 
@@ -101,22 +102,70 @@ public partial class MainWindow : Window
             return;
         }
 
-var pages = new (Func<bool> enabled, Action show)[]
+        var navigationButtons = GetVisibleTopNavigationButtons();
+        if (index < navigationButtons.Count)
         {
-            (() => true, ShowProjectPage)
-        };
-        var entries = new List<(Func<bool> enabled, Action show)>();
-        foreach (var registration in _plugins)
+            navigationButtons[index].RaiseEvent(new RoutedEventArgs(Button.ClickEvent, navigationButtons[index]));
+            e.Handled = true;
+        }
+    }
+
+    private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Alt || e.Delta == 0)
         {
-            entries.Add((() => _viewModel.EnablePlugins && registration.IsEnabled(), () => ShowPluginPage(registration)));
+            return;
         }
 
-        entries.Add((() => _viewModel.EnablePlugins, ShowPluginManagementPage));
-        pages = entries.ToArray();
-        if (index < pages.Length && pages[index].enabled())
+        var navigationButtons = GetVisibleTopNavigationButtons();
+        if (navigationButtons.Count == 0)
         {
-            pages[index].show();
-            e.Handled = true;
+            return;
+        }
+
+        var currentIndex = _activeNavigationButton is not null
+            ? navigationButtons.IndexOf(_activeNavigationButton)
+            : -1;
+        if (currentIndex < 0)
+        {
+            currentIndex = 0;
+        }
+
+        var nextIndex = e.Delta > 0
+            ? (currentIndex - 1 + navigationButtons.Count) % navigationButtons.Count
+            : (currentIndex + 1) % navigationButtons.Count;
+        navigationButtons[nextIndex].RaiseEvent(new RoutedEventArgs(Button.ClickEvent, navigationButtons[nextIndex]));
+        e.Handled = true;
+    }
+
+    private List<Button> GetVisibleTopNavigationButtons()
+    {
+        if (ProjectNavigationButton.Parent is not Panel navigationContainer)
+        {
+            return new List<Button>();
+        }
+
+        var buttons = new List<Button>();
+        AddNavigationButtons(navigationContainer, buttons);
+
+        return buttons
+            .Where(button => button.Visibility == Visibility.Visible && button.IsVisible)
+            .ToList();
+    }
+
+    private static void AddNavigationButtons(Panel panel, ICollection<Button> buttons)
+    {
+        foreach (var child in panel.Children)
+        {
+            switch (child)
+            {
+                case Button button:
+                    buttons.Add(button);
+                    break;
+                case Panel childPanel:
+                    AddNavigationButtons(childPanel, buttons);
+                    break;
+            }
         }
     }
 

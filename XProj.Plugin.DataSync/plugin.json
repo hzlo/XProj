@@ -1,0 +1,11 @@
+{
+  "id": "data-sync",
+  "name": "数据同步",
+  "description": "使用 WebDAV 同步本机配置文件",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entryAssembly": "XProj.Plugin.DataSync.dll",
+  "entryType": "XProj.Plugin.DataSync.DataSyncPlugin",
+  "minHostVersion": "2.1.1",
+  "defaultEnabled": false
+}

@@ -65,7 +65,6 @@ private void ApplySettingsToControls(AppSettings settings)
         LogItalicToggle.IsChecked = settings.LogFontItalic;
         LogVisibleLineCountComboBox.SelectedItem = settings.LogVisibleLineCount;
         EnablePluginsToggle.IsChecked = settings.EnablePlugins;
-        EnableJsonConverterToggle.IsChecked = settings.EnableJsonConverter;
         UpdatePreviews();
     }
 
@@ -323,10 +322,7 @@ settings = new AppSettings
             LogFontItalic = LogItalicToggle.IsChecked == true,
             LogVisibleLineCount = logVisibleLineCount,
             EnablePlugins = EnablePluginsToggle.IsChecked == true,
-            EnableNotes = _settings.EnableNotes,
-            EnableWsl = _settings.EnableWsl,
-            EnableTranslator = _settings.EnableTranslator,
-            EnableJsonConverter = EnableJsonConverterToggle.IsChecked == true
+            PluginStates = new Dictionary<string, bool>(_settings.PluginStates ?? new Dictionary<string, bool>(), StringComparer.OrdinalIgnoreCase)
         };
         if (validateContrast)
         {

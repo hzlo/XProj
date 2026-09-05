@@ -3,6 +3,8 @@ using ProjectManager.Wpf.Infrastructure;
 using ProjectManager.Wpf.Models;
 using ProjectManager.Wpf.ViewModels;
 
+const string escapedJson = "\"{\\\"code\\\":200,\\\"msg\\\":\\\"成功\\\",\\\"data\\\":{\\\"id\\\":1001,\\\"name\\\":\\\"张三\\\",\\\"score\\\":95.5,\\\"passed\\\":true,\\\"birth\\\":\\\"1995-03-12\\\",\\\"tags\\\":[\\\"前端\\\",\\\"后端\\\"],\\\"profile\\\":{\\\"city\\\":\\\"北京\\\",\\\"hobby\\\":null},\\\"scores\\\":[88,92,76.5],\\\"emptyObj\\\":{},\\\"emptyArr\\\":[]},\\\"errors\\\":[]}\"";
+_ = escapedJson;
 if (args.Contains("--emit-unicode-output"))
 {
     Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
@@ -192,8 +194,11 @@ var persistedData = new AppData
         LogFontItalic = true,
         LogVisibleLineCount = 500,
         EnablePlugins = true,
-        EnableNotes = false,
-        EnableWsl = true
+        PluginStates = new Dictionary<string, bool>
+        {
+            ["notes"] = false,
+            ["wsl"] = true
+        }
     },
     Groups = new List<ProjectGroup> { parentGroup, childGroup },
     Projects = new List<ManagedProject>
@@ -256,9 +261,9 @@ if (loadedData.Groups.Count != 2 ||
     !loadedData.Settings.LogFontBold ||
     !loadedData.Settings.LogFontItalic ||
      loadedData.Settings.LogVisibleLineCount != 500 ||
-      !loadedData.Settings.EnablePlugins ||
-      loadedData.Settings.EnableNotes ||
-      !loadedData.Settings.EnableWsl)
+       !loadedData.Settings.EnablePlugins ||
+       loadedData.Settings.PluginStates["notes"] ||
+       !loadedData.Settings.PluginStates["wsl"])
 {
     throw new InvalidOperationException("Nested group or log font persistence smoke test failed.");
 }
@@ -272,9 +277,9 @@ if (importedData.Settings.Theme != "Light" ||
     importedData.Settings.CloseBehavior != "Exit" ||
     importedData.Settings.UiFontFamily != "Microsoft YaHei UI" ||
     importedData.Settings.LogVisibleLineCount != 500 ||
-     !importedData.Settings.EnablePlugins ||
-     importedData.Settings.EnableNotes ||
-     !importedData.Settings.EnableWsl ||
+      !importedData.Settings.EnablePlugins ||
+      importedData.Settings.PluginStates["notes"] ||
+      !importedData.Settings.PluginStates["wsl"] ||
      importedData.Projects.Single().Name != "Persisted project")
 {
     throw new InvalidOperationException("Configuration export/import smoke test failed.");
@@ -550,9 +555,14 @@ internal sealed class StaticReleaseRedirectHandler(string releaseUrl) : HttpMess
     private HttpResponseMessage CreateResponse()
     {
         RequestCount++;
+        var tagName = releaseUrl[(releaseUrl.LastIndexOf("/tag/", StringComparison.Ordinal) + 5)..];
         return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
         {
-            RequestMessage = new HttpRequestMessage(HttpMethod.Get, releaseUrl)
+            RequestMessage = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/repos/hzlo/XProj/releases"),
+            Content = new StringContent(
+                $"[{{\"draft\":false,\"prerelease\":false,\"tag_name\":\"{tagName}\",\"html_url\":\"{releaseUrl}\"}}]",
+                Encoding.UTF8,
+                "application/json")
         };
     }
 }

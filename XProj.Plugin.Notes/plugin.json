@@ -1,0 +1,11 @@
+{
+  "id": "notes",
+  "name": "备忘录",
+  "description": "保存和预览全局 Markdown 笔记",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entryAssembly": "XProj.Plugin.Notes.dll",
+  "entryType": "XProj.Plugin.Notes.NotesPlugin",
+  "minHostVersion": "2.1.1",
+  "defaultEnabled": true
+}

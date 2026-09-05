@@ -1,0 +1,85 @@
+name: Plugin Release
+
+on:
+  push:
+    tags:
+      - "plugin-*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: startsWith(github.ref_name, 'plugin-')
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve plugin
+        id: plugin
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^plugin-(?<id>.+)-v(?<version>\d+\.\d+\.\d+)$') {
+            throw "Invalid plugin tag: $tag"
+          }
+          $map = @{
+            "notes" = "XProj.Plugin.Notes"
+            "wsl" = "XProj.Plugin.Wsl"
+            "json-converter" = "XProj.Plugin.JsonConverter"
+            "translator" = "XProj.Plugin.Translator"
+            "data-sync" = "XProj.Plugin.DataSync"
+          }
+          if (-not $map.ContainsKey($Matches.id)) {
+            throw "Unknown plugin id: $($Matches.id)"
+          }
+          "id=$($Matches.id)" >> $env:GITHUB_OUTPUT
+          "version=$($Matches.version)" >> $env:GITHUB_OUTPUT
+          "project=$($map[$Matches.id])" >> $env:GITHUB_OUTPUT
+
+      - name: Restore plugin
+        run: dotnet restore "${{ steps.plugin.outputs.project }}/${{ steps.plugin.outputs.project }}.csproj"
+
+      - name: Build plugin
+        run: dotnet build "${{ steps.plugin.outputs.project }}/${{ steps.plugin.outputs.project }}.csproj" --configuration Release --no-restore
+
+      - name: Publish plugin package
+        run: >-
+          dotnet publish "${{ steps.plugin.outputs.project }}/${{ steps.plugin.outputs.project }}.csproj"
+          --configuration Release
+          --runtime win-x64
+          --self-contained false
+          -p:Version=${{ steps.plugin.outputs.version }}
+          -p:AssemblyVersion=${{ steps.plugin.outputs.version }}
+          -p:FileVersion=${{ steps.plugin.outputs.version }}
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          --output "artifacts/${{ steps.plugin.outputs.id }}"
+
+      - name: Set package version
+        shell: pwsh
+        run: |
+          $manifestPath = "artifacts/${{ steps.plugin.outputs.id }}/plugin.json"
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          $manifest.version = "${{ steps.plugin.outputs.version }}"
+          $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+
+      - name: Package plugin
+        shell: pwsh
+        run: |
+          $source = "artifacts/${{ steps.plugin.outputs.id }}"
+          $package = "artifacts/XProj.Plugin.${{ steps.plugin.outputs.id }}-${{ github.ref_name }}.zip"
+          Compress-Archive -Path "$source/*" -DestinationPath $package
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          make_latest: false
+          generate_release_notes: true
+          files: artifacts/XProj.Plugin.${{ steps.plugin.outputs.id }}-${{ github.ref_name }}.zip

@@ -79,18 +79,22 @@ dotnet run --project .\ProjectManager.Wpf.SmokeTests\ProjectManager.Wpf.SmokeTes
 
 ## 发布
 
-仓库使用 GitHub Actions 管理 Release。推送 `v*` 格式的标签后，工作流会：
+仓库使用 GitHub Actions 管理 Release。主程序使用 `v*` 标签，插件使用 `plugin-<id>-v*` 标签，两者由不同工作流独立构建：
 
-1. 运行 Release 构建和冒烟测试。
-2. 生成 Windows x64 自包含版本。
-3. 生成 Windows x64 框架依赖版本。
-4. 将两个 ZIP 上传到对应的 GitHub Release。
+1. 主程序标签运行主程序构建和冒烟测试。
+2. 主程序生成 Windows x64 自包含版本和框架依赖版本。
+3. 插件标签只构建并发布对应的插件 ZIP，不触发主程序 Release。
+4. 主程序和插件包上传到各自的 GitHub Release。
 
 示例：
 
 ```powershell
-git tag v1.1.0
-git push origin v1.1.0
+git tag v2.2.0
+git push origin v2.2.0
+
+# 发布 notes 插件
+git tag plugin-notes-v1.0.0
+git push origin plugin-notes-v1.0.0
 ```
 
 ## 技术栈
@@ -110,7 +114,9 @@ XProj.Plugin.Notes/
 XProj.Plugin.Wsl/
 ```
 
-插件通过 `XProj.Plugin.Abstractions` 中的 `IXProjPlugin` 和 `PluginHostContext` 接入宿主。当前版本采用解决方案内项目引用；插件由宿主管理，其中 WSL 插件会随插件页开关创建或卸载。这为后续改造成独立 DLL 扫描加载保留了边界，但目前还不是运行时动态加载机制。
+插件通过 `XProj.Plugin.Abstractions` 中的 `IXProjPlugin`、`PluginManifest` 和 `PluginHostContext` 接入宿主。主程序只引用抽象契约，启动时扫描 `%LOCALAPPDATA%\ProjectManagerWpf\plugins\` 和程序目录下的 `Plugins\`，按 `plugin.json` 加载独立 DLL。插件页面支持按插件 ID 下载并准备更新，更新会在重启后生效。
+
+每个插件使用独立版本号和标签，例如 `plugin-notes-v1.0.0`。插件包必须包含 `plugin.json`、入口 DLL 及其依赖；清单中的 `apiVersion` 用于约束宿主契约兼容性。
 
 备忘录插件的数据保存在：
 

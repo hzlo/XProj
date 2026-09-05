@@ -7,11 +7,16 @@
         <Nullable>enable</Nullable>
         <RootNamespace>XProj.Plugin.JsonConverter</RootNamespace>
         <AssemblyName>XProj.Plugin.JsonConverter</AssemblyName>
+        <Version>1.0.0</Version>
+        <AssemblyVersion>1.0.0</AssemblyVersion>
+        <FileVersion>1.0.0</FileVersion>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\XProj.Plugin.Abstractions\XProj.Plugin.Abstractions.csproj" />
         <PackageReference Include="Material.Icons.WPF" Version="3.0.2" />
+        <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+        <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
     </ItemGroup>
 
 </Project>

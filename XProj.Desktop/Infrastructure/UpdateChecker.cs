@@ -6,7 +6,7 @@ namespace ProjectManager.Wpf.Infrastructure;
 internal sealed class UpdateChecker
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
-    private static readonly Uri LatestReleaseEndpoint = new("https://github.com/hzlo/XProj/releases/latest");
+    private static readonly Uri ReleasesEndpoint = new("https://api.github.com/repos/hzlo/XProj/releases?per_page=100");
     private static readonly HttpClient SharedHttpClient = CreateHttpClient();
     private readonly string? _cacheFilePath;
     private readonly Version _currentVersion;
@@ -40,7 +40,7 @@ internal sealed class UpdateChecker
         }
 
         using var response = await _httpClient.GetAsync(
-            LatestReleaseEndpoint,
+            ReleasesEndpoint,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -52,9 +52,29 @@ internal sealed class UpdateChecker
             throw new InvalidOperationException($"GitHub 返回了错误状态：{(int)response.StatusCode} {response.ReasonPhrase}");
         }
 
-        var releaseUrl = response.RequestMessage?.RequestUri;
-        var tagName = GetTagNameFromReleaseUrl(releaseUrl);
-        var result = CreateResult(tagName, releaseUrl!.AbsoluteUri);
+        await using var releaseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var releases = await JsonDocument.ParseAsync(releaseStream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var release = releases.RootElement.EnumerateArray()
+            .Where(item => !item.GetProperty("draft").GetBoolean() && !item.GetProperty("prerelease").GetBoolean())
+            .Select(item => new
+            {
+                Tag = item.GetProperty("tag_name").GetString() ?? string.Empty,
+                Url = item.GetProperty("html_url").GetString() ?? string.Empty
+            })
+            .Where(item => item.Tag.StartsWith("v", StringComparison.OrdinalIgnoreCase) &&
+                          Uri.TryCreate(item.Url, UriKind.Absolute, out _) &&
+                          TryParseReleaseVersion(item.Tag, out _))
+            .Select(item => new { item.Tag, Url = new Uri(item.Url), Version = ParseReleaseVersion(item.Tag) })
+            .OrderByDescending(item => item.Version)
+            .FirstOrDefault();
+        if (release is null)
+        {
+            throw new InvalidOperationException("GitHub 仓库尚未创建正式 XProj Release。");
+        }
+
+        var tagName = release.Tag;
+        var releaseUrl = release.Url;
+        var result = CreateResult(tagName, releaseUrl.AbsoluteUri);
         await WriteCachedReleaseAsync(
             new CachedRelease(DateTimeOffset.UtcNow, tagName, releaseUrl.AbsoluteUri),
             cancellationToken).ConfigureAwait(false);
@@ -120,23 +140,8 @@ internal sealed class UpdateChecker
         return false;
     }
 
-    private static string GetTagNameFromReleaseUrl(Uri? releaseUrl)
-    {
-        const string releasePathPrefix = "/hzlo/XProj/releases/tag/";
-        if (releaseUrl is not null &&
-            releaseUrl.Scheme == Uri.UriSchemeHttps &&
-            releaseUrl.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) &&
-            releaseUrl.AbsolutePath.StartsWith(releasePathPrefix, StringComparison.OrdinalIgnoreCase))
-        {
-            var tagName = Uri.UnescapeDataString(releaseUrl.AbsolutePath[releasePathPrefix.Length..]).Trim('/');
-            if (!string.IsNullOrWhiteSpace(tagName) && !tagName.Contains('/'))
-            {
-                return tagName;
-            }
-        }
-
-        throw new InvalidOperationException("GitHub 未返回有效的最新 Release 地址。");
-    }
+    private static Version ParseReleaseVersion(string tagName) =>
+        TryParseReleaseVersion(tagName, out var version) ? version : new Version(0, 0, 0);
 
     private async Task<CachedRelease?> ReadCachedReleaseAsync(CancellationToken cancellationToken)
     {

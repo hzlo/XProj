@@ -8,6 +8,7 @@ public sealed class DataSyncPlugin : IXProjPlugin
     public string Id => "data-sync";
     public string Name => "数据同步";
     public string Description => "使用 WebDAV 同步本机配置文件";
+    public string Version => typeof(DataSyncPlugin).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
     public Material.Icons.MaterialIconKind Icon => Material.Icons.MaterialIconKind.CloudSyncOutline;
 
     public FrameworkElement CreateView(PluginHostContext context) => new DataSyncView(context);

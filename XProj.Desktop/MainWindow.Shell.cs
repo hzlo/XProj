@@ -8,11 +8,6 @@ using ProjectManager.Wpf.Infrastructure;
 using ProjectManager.Wpf.ViewModels;
 using ProjectManager.Wpf.Views;
 using XProj.Plugin.Abstractions;
-using XProj.Plugin.DataSync;
-using XProj.Plugin.JsonConverter;
-using XProj.Plugin.Notes;
-using XProj.Plugin.Translator;
-using XProj.Plugin.Wsl;
 using Forms = System.Windows.Forms;
 using Models = ProjectManager.Wpf.Models;
 
@@ -25,6 +20,7 @@ public partial class MainWindow
     private readonly UpdateInstaller _updateInstaller = new();
     private MainViewModel _viewModel = null!;
     private readonly List<PluginRegistration> _plugins = new();
+    private PluginPackageManager _pluginPackageManager = null!;
     private readonly GlobalHotkeyRegistration _globalHotkey = new();
     private readonly Forms.ContextMenuStrip _trayMenu = new();
     private Forms.NotifyIcon _trayIcon = null!;
@@ -43,6 +39,8 @@ public partial class MainWindow
     private void InitializeShell()
     {
         _viewModel = new MainViewModel(new JsonDataStore(), new ProcessManager(), _systemLauncher);
+        _pluginPackageManager = new PluginPackageManager(Path.Combine(_viewModel.DataDirectory, "plugins"));
+        _pluginPackageManager.ApplyPendingUpdates();
         InitializePlugins();
         DataContext = _viewModel;
 
@@ -60,38 +58,22 @@ public partial class MainWindow
 
     private void InitializePlugins()
     {
-        _plugins.Add(new PluginRegistration
+        var hostVersion = typeof(MainWindow).Assembly.GetName().Version ?? new Version(0, 0, 0);
+        var pluginDirectories = new[]
         {
-            Plugin = new NotesPlugin(),
-            IsEnabled = () => _viewModel.EnableNotes,
-            WriteEnabled = (settings, value) => settings.EnableNotes = value
-        });
-        _plugins.Add(new PluginRegistration
+            Path.Combine(_viewModel.DataDirectory, "plugins"),
+            Path.Combine(AppContext.BaseDirectory, "Plugins")
+        };
+        var result = new PluginLoader(pluginDirectories, hostVersion).Load();
+        foreach (var loadedPlugin in result.Plugins)
         {
-            Plugin = new WslPlugin(),
-            IsEnabled = () => _viewModel.EnableWsl,
-            WriteEnabled = (settings, value) => settings.EnableWsl = value,
-            OnShownAsync = static registration => ((WslView)registration.View!).InitializeAsync(),
-            OnUnloadAsync = static registration => ((WslView?)registration.View)?.ShutdownAsync() ?? Task.CompletedTask
-        });
-        _plugins.Add(new PluginRegistration
+            _plugins.Add(new PluginRegistration { Owner = this, LoadedPlugin = loadedPlugin });
+        }
+
+        foreach (var failure in result.Failures)
         {
-            Plugin = new JsonConverterPlugin(),
-            IsEnabled = () => _viewModel.EnableJsonConverter,
-            WriteEnabled = (settings, value) => settings.EnableJsonConverter = value
-        });
-        _plugins.Add(new PluginRegistration
-        {
-            Plugin = new TranslatorPlugin(),
-            IsEnabled = () => _viewModel.EnableTranslator,
-            WriteEnabled = (settings, value) => settings.EnableTranslator = value
-        });
-        _plugins.Add(new PluginRegistration
-        {
-            Plugin = new DataSyncPlugin(),
-            IsEnabled = () => _viewModel.EnableDataSync,
-            WriteEnabled = (settings, value) => settings.EnableDataSync = value
-        });
+            _viewModel.SetStatus($"插件加载失败：{Path.GetFileName(failure.PackageDirectory)} - {failure.Message}");
+        }
 
         var pagesGrid = (Grid)ProjectPage.Parent;
         foreach (var registration in _plugins)
@@ -126,6 +108,15 @@ public partial class MainWindow
             registration.NavButton = navButton;
 
             registration.ManageToggle = CreatePluginManageCard(registration);
+        }
+
+        if (_plugins.Count == 0)
+        {
+            PluginManagementStatusText.Text = "尚未安装插件。可从插件 Release 安装独立插件包。";
+        }
+        else
+        {
+            PluginManagementStatusText.Text = $"已加载 {_plugins.Count} 个插件。插件更新会在重启后生效。";
         }
     }
 
@@ -229,11 +220,14 @@ public partial class MainWindow
 
     private sealed class PluginRegistration
     {
-        public required IXProjPlugin Plugin { get; init; }
-        public required Func<bool> IsEnabled { get; init; }
-        public required Action<Models.AppSettings, bool> WriteEnabled { get; init; }
-        public Func<PluginRegistration, Task>? OnShownAsync { get; init; }
-        public Func<PluginRegistration, Task>? OnUnloadAsync { get; init; }
+        public required MainWindow Owner { get; init; }
+        public required LoadedPlugin LoadedPlugin { get; init; }
+
+        public IXProjPlugin Plugin => LoadedPlugin.Plugin;
+        public PluginManifest Manifest => LoadedPlugin.Manifest;
+        public bool IsEnabled() => Owner._viewModel.IsPluginEnabled(Plugin.Id, Manifest.DefaultEnabled);
+        public void WriteEnabled(Models.AppSettings settings, bool value) =>
+            MainViewModel.SetPluginEnabled(settings, Plugin.Id, value);
 
         public Button? NavButton { get; set; }
         public ToggleButton? ManageToggle { get; set; }

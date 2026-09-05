@@ -1,0 +1,11 @@
+{
+  "id": "translator",
+  "name": "翻译器",
+  "description": "连接腾讯、阿里或 Google 翻译服务",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entryAssembly": "XProj.Plugin.Translator.dll",
+  "entryType": "XProj.Plugin.Translator.TranslatorPlugin",
+  "minHostVersion": "2.1.1",
+  "defaultEnabled": true
+}

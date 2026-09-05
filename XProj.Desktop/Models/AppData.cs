@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace ProjectManager.Wpf.Models;
 
 public sealed class AppData
@@ -10,58 +13,53 @@ public sealed class AppData
 }
 
 public sealed class AppSettings
+{
+    public const string DefaultLightForegroundColor = "#1D1D1F";
+    public const string DefaultLightBackgroundColor = "#DCDDE1";
+    public const string DefaultDarkForegroundColor = "#C0C8E4";
+    public const string DefaultDarkBackgroundColor = "#0E0F12";
+    public const string DefaultGlobalHotkey = "Ctrl+Alt+Space";
+
+    public string Theme { get; set; } = "Dark";
+    public string LightForegroundColor { get; set; } = DefaultLightForegroundColor;
+    public string LightBackgroundColor { get; set; } = DefaultLightBackgroundColor;
+    public string DarkForegroundColor { get; set; } = DefaultDarkForegroundColor;
+    public string DarkBackgroundColor { get; set; } = DefaultDarkBackgroundColor;
+    public string CloseBehavior { get; set; } = "MinimizeToTray";
+    public string GlobalHotkey { get; set; } = DefaultGlobalHotkey;
+    public string UiFontFamily { get; set; } = "Microsoft YaHei UI";
+    public double UiFontSize { get; set; } = 13;
+    public string LogFontFamily { get; set; } = "Consolas";
+    public double LogFontSize { get; set; } = 11;
+    public bool LogFontBold { get; set; }
+    public bool LogFontItalic { get; set; }
+    public int LogVisibleLineCount { get; set; } = 300;
+    public bool EnablePlugins { get; set; }
+    public Dictionary<string, bool> PluginStates { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? LegacyProperties { get; set; }
+
+    public AppSettings Clone() => new()
     {
-        public const string DefaultLightForegroundColor = "#1D1D1F";
-        public const string DefaultLightBackgroundColor = "#DCDDE1";
-        public const string DefaultDarkForegroundColor = "#C0C8E4";
-        public const string DefaultDarkBackgroundColor = "#0E0F12";
-        public const string DefaultGlobalHotkey = "Ctrl+Alt+Space";
-
-        public string Theme { get; set; } = "Dark";
-        public string LightForegroundColor { get; set; } = DefaultLightForegroundColor;
-        public string LightBackgroundColor { get; set; } = DefaultLightBackgroundColor;
-        public string DarkForegroundColor { get; set; } = DefaultDarkForegroundColor;
-        public string DarkBackgroundColor { get; set; } = DefaultDarkBackgroundColor;
-        public string CloseBehavior { get; set; } = "MinimizeToTray";
-        public string GlobalHotkey { get; set; } = DefaultGlobalHotkey;
-        public string UiFontFamily { get; set; } = "Microsoft YaHei UI";
-        public double UiFontSize { get; set; } = 13;
-        public string LogFontFamily { get; set; } = "Consolas";
-        public double LogFontSize { get; set; } = 11;
-        public bool LogFontBold { get; set; }
-        public bool LogFontItalic { get; set; }
-        public int LogVisibleLineCount { get; set; } = 300;
-        public bool EnablePlugins { get; set; }
-    public bool EnableNotes { get; set; } = true;
-    public bool EnableWsl { get; set; }
-    public bool EnableJsonConverter { get; set; }
-    public bool EnableTranslator { get; set; } = true;
-    public bool EnableDataSync { get; set; }
-
-        public AppSettings Clone() => new()
-        {
-            Theme = Theme,
-            LightForegroundColor = LightForegroundColor,
-            LightBackgroundColor = LightBackgroundColor,
-            DarkForegroundColor = DarkForegroundColor,
-            DarkBackgroundColor = DarkBackgroundColor,
-            CloseBehavior = CloseBehavior,
-            GlobalHotkey = GlobalHotkey,
-            UiFontFamily = UiFontFamily,
-            UiFontSize = UiFontSize,
-            LogFontFamily = LogFontFamily,
-            LogFontSize = LogFontSize,
-            LogFontBold = LogFontBold,
-            LogFontItalic = LogFontItalic,
-            LogVisibleLineCount = LogVisibleLineCount,
-            EnablePlugins = EnablePlugins,
-            EnableNotes = EnableNotes,
-            EnableWsl = EnableWsl,
-            EnableJsonConverter = EnableJsonConverter,
-            EnableTranslator = EnableTranslator,
-            EnableDataSync = EnableDataSync
-        };
-    }
+        Theme = Theme,
+        LightForegroundColor = LightForegroundColor,
+        LightBackgroundColor = LightBackgroundColor,
+        DarkForegroundColor = DarkForegroundColor,
+        DarkBackgroundColor = DarkBackgroundColor,
+        CloseBehavior = CloseBehavior,
+        GlobalHotkey = GlobalHotkey,
+        UiFontFamily = UiFontFamily,
+        UiFontSize = UiFontSize,
+        LogFontFamily = LogFontFamily,
+        LogFontSize = LogFontSize,
+        LogFontBold = LogFontBold,
+        LogFontItalic = LogFontItalic,
+        LogVisibleLineCount = LogVisibleLineCount,
+        EnablePlugins = EnablePlugins,
+        PluginStates = new Dictionary<string, bool>(PluginStates ?? new Dictionary<string, bool>(), StringComparer.OrdinalIgnoreCase)
+    };
+}
 
 public sealed class ProjectGroup
 {

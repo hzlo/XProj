@@ -196,12 +196,18 @@ public sealed class MainViewModel : ObservableObject
     public string LogFontSummary => $"{LogFontFamily.Source} · {LogFontSize * 72 / 96:0.##} pt";
     public bool IsLogFontItalic => LogFontStyle == FontStyles.Italic;
     public AppSettings CurrentSettings => _data.Settings.Clone();
-public bool EnablePlugins => _data.Settings.EnablePlugins;
-    public bool EnableNotes => _data.Settings.EnableNotes;
-    public bool EnableWsl => _data.Settings.EnableWsl;
-    public bool EnableTranslator => _data.Settings.EnableTranslator;
-    public bool EnableJsonConverter => _data.Settings.EnableJsonConverter;
-    public bool EnableDataSync => _data.Settings.EnableDataSync;
+    public bool EnablePlugins => _data.Settings.EnablePlugins;
+
+    public bool IsPluginEnabled(string pluginId, bool defaultEnabled = true) =>
+        IsPluginEnabled(_data.Settings, pluginId, defaultEnabled);
+
+    public static bool IsPluginEnabled(AppSettings settings, string pluginId, bool defaultEnabled = true) =>
+        settings.PluginStates is null || !settings.PluginStates.TryGetValue(pluginId, out var enabled)
+            ? defaultEnabled
+            : enabled;
+
+    public static void SetPluginEnabled(AppSettings settings, string pluginId, bool enabled) =>
+        settings.PluginStates[pluginId] = enabled;
 
     public void SetStatus(string text) => StatusText = text;
 
